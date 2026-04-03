@@ -100,8 +100,8 @@ body {
   animation: app-enter .6s ease-out both;
 }
 @keyframes app-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 body::before {
   content: '';
@@ -154,7 +154,7 @@ a { color: inherit; text-decoration: none; }
   position: fixed;
   left: 8px; right: 8px;
   bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  z-index: 300;
+  z-index: 500;
   background: rgba(5,10,20,.93);
   border: 1px solid rgba(47,126,245,.22);
   backdrop-filter: blur(20px);
@@ -943,6 +943,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   <div class="hdr-actions">
     <div class="hdr-sync-dot" id="hdr-sync-dot" title="Estado de sincronización"></div>
     <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+    <button class="hdr-btn" id="logout-btn" onclick="logout()" title="Cerrar sesión">🚪</button>
   </div>
 </header>
 
@@ -1631,6 +1632,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="btn-bar">
         <button class="btn-ghost" onclick="toggleTheme()">🌓 Tema claro/oscuro</button>
         <button class="btn-ghost" onclick="limpiarForm();goPage('informes')">🧹 Limpiar formulario</button>
+        <button class="btn-ghost red" onclick="logout()">🚪 Cerrar sesión</button>
       </div>
     </div>
 
@@ -1871,6 +1873,8 @@ const DB = (() => {
 
 'use strict';
 
+const SESSION_KEY = 'ivp_session_active';
+
 /* ══════════════════════════════════════════════════════════
    1. ESTADO GLOBAL
 ══════════════════════════════════════════════════════════ */
@@ -1893,6 +1897,10 @@ const App = {
    2. ARRANQUE
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!hasActiveSession()) {
+    window.location.href = 'index.html';
+    return;
+  }
   DB.loadGitHubConfig();
   await DB.init();
   applyTheme();
@@ -1922,6 +1930,16 @@ function renderAll() {
 /* ══════════════════════════════════════════════════════════
    3. ROUTER
 ══════════════════════════════════════════════════════════ */
+function hasActiveSession() {
+  try { return localStorage.getItem(SESSION_KEY) === '1'; } catch (_) { return false; }
+}
+
+function logout() {
+  if (!confirm('¿Quieres cerrar sesión y volver a la pantalla de acceso?')) return;
+  try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+  window.location.href = 'index.html';
+}
+
 function goPage(id) {
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

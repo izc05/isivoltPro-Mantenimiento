@@ -356,6 +356,7 @@
   <div class="video-tools">
     <button class="tool-btn" id="upload-video-btn" type="button">Subir vídeo intro</button>
     <button class="tool-btn" id="reset-video-btn" type="button">Restaurar</button>
+    <button class="tool-btn" id="toggle-sound-btn" type="button">🔇 Sonido OFF</button>
     <input id="video-file-input" type="file" accept="video/mp4,video/webm,video/ogg">
   </div>
 
@@ -425,9 +426,12 @@
 
 <script>
   const STORAGE_KEY = 'ivp-intro-video-dataurl';
+  const INTRO_SOUND_KEY = 'ivp_intro_sound_enabled';
+  const SESSION_KEY = 'ivp_session_active';
   const bgVideo = document.getElementById('bg-video');
   const uploadBtn = document.getElementById('upload-video-btn');
   const resetBtn = document.getElementById('reset-video-btn');
+  const soundBtn = document.getElementById('toggle-sound-btn');
   const fileInput = document.getElementById('video-file-input');
 
   function setVideoSource(videoSrc) {
@@ -470,10 +474,32 @@
     setVideoSource('intro.mp4');
   }
 
+  function updateSoundButton() {
+    if (!soundBtn || !bgVideo) return;
+    soundBtn.textContent = bgVideo.muted ? '🔇 Sonido OFF' : '🔊 Sonido ON';
+  }
+
+  function applySavedSoundPreference() {
+    let enabled = false;
+    try { enabled = localStorage.getItem(INTRO_SOUND_KEY) === '1'; } catch (_) {}
+    if (bgVideo) bgVideo.muted = !enabled;
+    updateSoundButton();
+  }
+
+  function toggleIntroSound() {
+    if (!bgVideo) return;
+    bgVideo.muted = !bgVideo.muted;
+    try { localStorage.setItem(INTRO_SOUND_KEY, bgVideo.muted ? '0' : '1'); } catch (_) {}
+    bgVideo.play().catch(() => {});
+    updateSoundButton();
+  }
+
   uploadBtn?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', handleVideoUpload);
   resetBtn?.addEventListener('click', resetVideoToDefault);
+  soundBtn?.addEventListener('click', toggleIntroSound);
   loadSavedVideo();
+  applySavedSoundPreference();
 
   // Contador de progreso
   let pct = 0;
@@ -499,6 +525,7 @@
 
   // Entrar a la app
   function enterApp() {
+    try { localStorage.setItem(SESSION_KEY, '1'); } catch (_) {}
     document.body.classList.add('exit');
     setTimeout(() => {
       // Redirige al archivo principal de la app
