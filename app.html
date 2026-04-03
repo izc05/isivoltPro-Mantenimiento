@@ -771,6 +771,60 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .reg-item span{font-size:12px;color:var(--t2)}
 .reg-empty{font-size:12px;color:var(--t2);padding:8px 2px}
 .check-hub{display:grid;gap:10px}
+.reg-open-btn{
+  border:none;
+  border-radius:10px;
+  padding:9px 12px;
+  font-size:11px;
+  font-weight:800;
+  font-family:var(--mono);
+  background:var(--acc-s);
+  color:var(--acc);
+  border:1px solid var(--acc);
+}
+
+/* ── OT VISTAS (AGENDA / LISTADO) ──────────────────────── */
+.ot-tabs{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+.ot-tab{
+  border:1px solid var(--border2);
+  background:var(--s3);
+  color:var(--t2);
+  border-radius:999px;
+  padding:8px 14px;
+  font-size:11px;
+  font-weight:800;
+  font-family:var(--mono);
+}
+.ot-tab.active{
+  background:var(--acc-s);
+  border-color:var(--acc);
+  color:var(--acc);
+}
+.ot-panel{display:none}
+.ot-panel.active{display:block}
+.cal-shell{
+  border:1px solid var(--border2);
+  border-radius:18px;
+  padding:12px;
+  background:
+    radial-gradient(circle at top right, var(--acc-g), transparent 55%),
+    linear-gradient(160deg, var(--s2), var(--s3));
+}
+.cal-grid{gap:6px}
+.cal-cell{
+  min-height:40px;
+  border:1px solid transparent;
+  background:rgba(255,255,255,.02);
+}
+.cal-cell.has-task{
+  border-color:var(--border2);
+  background:rgba(255,255,255,.05);
+}
 
 /* ── EMPTY STATE ─────────────────────────────────────────── */
 .empty { text-align: center; padding: 50px 20px; color: var(--t3); }
@@ -1545,28 +1599,35 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="kpi-card"><div class="kpi-n" id="ot-mes">0</div><div class="kpi-l">Este mes</div></div>
     </div>
 
+    <div class="ot-tabs reveal">
+      <button class="ot-tab active" id="ot-tab-agenda" onclick="setOTView('agenda')">📅 Agenda</button>
+      <button class="ot-tab" id="ot-tab-listado" onclick="setOTView('listado')">🛠️ OT</button>
+    </div>
+
     <!-- Calendario visual -->
-    <div class="card reveal">
-      <div class="cal-nav">
-        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
-        <div class="cal-nav-title" id="cal-title">—</div>
-        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
-      </div>
-      <div class="cal-grid" id="cal-grid">
-        <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">X</div>
-        <div class="cal-dow">J</div><div class="cal-dow">V</div><div class="cal-dow">S</div><div class="cal-dow">D</div>
-      </div>
-      <div class="cal-legend">
-        <span><span class="pip u" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Urgente</span>
-        <span><span class="pip a" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Alta</span>
-        <span><span class="pip m" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Media</span>
-        <span><span class="pip ok" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Cerrada</span>
+    <div class="card reveal ot-panel active" id="ot-panel-agenda">
+      <div class="cal-shell">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+          <div class="cal-nav-title" id="cal-title">—</div>
+          <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid">
+          <div class="cal-dow">L</div><div class="cal-dow">M</div><div class="cal-dow">X</div>
+          <div class="cal-dow">J</div><div class="cal-dow">V</div><div class="cal-dow">S</div><div class="cal-dow">D</div>
+        </div>
+        <div class="cal-legend">
+          <span><span class="pip u" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Urgente</span>
+          <span><span class="pip a" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Alta</span>
+          <span><span class="pip m" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Media</span>
+          <span><span class="pip ok" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Cerrada</span>
+        </div>
       </div>
     </div>
 
     <!-- Filtros OT -->
     
-    <div class="card reveal">
+    <div class="card reveal ot-panel" id="ot-panel-listado">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">OT guardadas</div><div class="sec-line"></div></div>
       <div class="ot-toolbar">
         <button class="btn-ghost acc" onclick="newOT()">✨ Nueva OT</button>
@@ -1694,10 +1755,33 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     <div class="card reveal">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Catálogo inicial</div><div class="sec-line"></div></div>
       <div class="reg-toolbar">
-        <input type="text" id="reg-search" placeholder="Buscar reglamento, ITC o palabra clave..." oninput="renderRegulations()">
-        <div class="reg-count" id="reg-count">0 resultados</div>
+        <input type="text" id="reg-search" placeholder="Buscar reglamento o palabra clave..." oninput="renderRegulations()">
+        <div class="reg-count" id="reg-count">0 reglamentos</div>
       </div>
       <div class="reg-grid" id="reg-grid"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════
+     PÁGINA: REBT / ITC
+═══════════════════════════════════════════════════ -->
+<main class="page" id="page-rebt">
+  <div class="wrap">
+    <div class="hero reveal">
+      <div class="hero-badge">⚡ REBT</div>
+      <div class="hero-title">ITC-BT 01 · 52</div>
+      <div class="hero-sub">Consulta completa de las 52 ITC del REBT con búsqueda rápida.</div>
+      <div style="margin-top:12px">
+        <button class="btn-ghost" onclick="goPage('reglamentos')">← Volver a reglamentos</button>
+      </div>
+    </div>
+    <div class="card reveal">
+      <div class="reg-toolbar">
+        <input type="text" id="rebt-search" placeholder="Buscar ITC, número o título..." oninput="renderREBTList()">
+        <div class="reg-count" id="rebt-count">52 ITC</div>
+      </div>
+      <div class="reg-grid" id="rebt-grid"></div>
     </div>
   </div>
 </main>
@@ -2130,6 +2214,7 @@ const App = {
   calYear:  new Date().getFullYear(),
   calMonth: new Date().getMonth(),
   histTab: 'todo',
+  otView: 'agenda',
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2174,6 +2259,7 @@ function renderAll() {
   renderStats();
   renderChecklistHub();
   renderRegulations();
+  renderREBTList();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2201,13 +2287,14 @@ function goPage(id) {
   initMotion();
   // FAB: visible en historial y OT
   const fab = document.getElementById('fab-nuevo');
-  if (fab) fab.classList.toggle('hidden', !['historial','ot','checklists','reglamentos','instalaciones','stats'].includes(id));
+  if (fab) fab.classList.toggle('hidden', !['historial','ot','checklists','reglamentos','rebt','instalaciones','stats'].includes(id));
   if (id === 'historial')    renderHistorial();
   if (id === 'ot')           {
     const sel = document.getElementById('f-instalacion');
     const otInst = document.getElementById('ot-inst-linked');
     if (otInst) otInst.textContent = sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '—';
     fillOTInstallationSelect();
+    setOTView(App.otView || 'agenda');
     renderOTList(); renderCalGrid();
     const box = document.getElementById('ot-editor-wrap');
     const edit = document.getElementById('ot-edit-id')?.value;
@@ -2215,6 +2302,7 @@ function goPage(id) {
   }
   if (id === 'checklists') renderChecklistHub();
   if (id === 'reglamentos') renderRegulations();
+  if (id === 'rebt') renderREBTList();
   if (id === 'instalaciones'){
     renderInstalaciones();
     const box = document.getElementById('inst-editor-wrap');
@@ -2222,6 +2310,14 @@ function goPage(id) {
   }
   if (id === 'stats')        renderStats();
   if (id === 'inicio')       renderHome();
+}
+
+function setOTView(view = 'agenda') {
+  App.otView = view === 'listado' ? 'listado' : 'agenda';
+  document.getElementById('ot-tab-agenda')?.classList.toggle('active', App.otView === 'agenda');
+  document.getElementById('ot-tab-listado')?.classList.toggle('active', App.otView === 'listado');
+  document.getElementById('ot-panel-agenda')?.classList.toggle('active', App.otView === 'agenda');
+  document.getElementById('ot-panel-listado')?.classList.toggle('active', App.otView === 'listado');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2454,26 +2550,37 @@ function renderRegulations() {
   const grid = document.getElementById('reg-grid');
   if (!grid) return;
   const q = (document.getElementById('reg-search')?.value || '').trim().toLowerCase();
+  const filteredRegs = REGULATIONS.filter(reg => {
+    if (!q) return true;
+    return `${reg.code} ${reg.area} ${reg.docs.join(' ')}`.toLowerCase().includes(q);
+  });
+  const count = document.getElementById('reg-count');
+  if (count) count.textContent = `${filteredRegs.length} reglamentos`;
+
+  grid.innerHTML = filteredRegs.map(reg => `
+    <article class="reg-card">
+      <div class="reg-head"><span class="reg-code">${esc(reg.code)}</span><span class="reg-chip">${esc(reg.area)}</span></div>
+      <ul>${reg.docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>
+      ${reg.code === 'REBT' ? '<button class="reg-open-btn" onclick="goPage(\'rebt\')">Abrir página REBT · 52 ITC</button>' : ''}
+    </article>`).join('') + `
+    ${filteredRegs.length ? '' : '<div class="reg-empty">No hay reglamentos con esa búsqueda.</div>'}`;
+}
+
+function renderREBTList() {
+  const grid = document.getElementById('rebt-grid');
+  if (!grid) return;
+  const q = (document.getElementById('rebt-search')?.value || '').trim().toLowerCase();
   const filteredITC = REBT_ITC.filter(itc => {
     if (!q) return true;
     return `${itc.id} ${itc.title} ${itc.tags.join(' ')}`.toLowerCase().includes(q);
   });
-  const count = document.getElementById('reg-count');
-  if (count) count.textContent = `${filteredITC.length} ITC encontradas`;
-
-  grid.innerHTML = REGULATIONS.map(reg => `
-    <article class="reg-card">
-      <div class="reg-head"><span class="reg-code">${esc(reg.code)}</span><span class="reg-chip">${esc(reg.area)}</span></div>
-      <ul>${reg.docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>
-    </article>`).join('') + `
-    <article class="reg-card">
-      <div class="reg-head"><span class="reg-code">REBT · ITC-BT</span><span class="reg-chip">Desglose 01–52</span></div>
-      ${filteredITC.length ? filteredITC.map(itc => `
-        <div class="reg-item">
-          <strong>${esc(itc.id)}</strong>
-          <span>${esc(itc.title)}</span>
-        </div>`).join('') : '<div class="reg-empty">No hay resultados con esa búsqueda.</div>'}
-    </article>`;
+  const count = document.getElementById('rebt-count');
+  if (count) count.textContent = `${filteredITC.length} ITC`;
+  grid.innerHTML = filteredITC.length ? filteredITC.map(itc => `
+    <div class="reg-item">
+      <strong>${esc(itc.id)}</strong>
+      <span>${esc(itc.title)}</span>
+    </div>`).join('') : '<div class="reg-empty">No hay resultados con esa búsqueda.</div>';
 }
 
 function loadChecklistBySpecialty() {

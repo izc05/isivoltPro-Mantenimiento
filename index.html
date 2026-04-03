@@ -318,17 +318,21 @@
   .typewriter-banner {
     position: fixed;
     left: 50%;
-    bottom: 118px;
-    transform: translateX(-50%);
+    top: 50%;
+    transform: translate(-50%, -50%);
     z-index: 12;
     width: min(92vw, 740px);
-    padding: 8px 10px;
+    padding: 12px 16px;
     font-family: 'JetBrains Mono', monospace;
     font-size: clamp(10px, 2.5vw, 13px);
     letter-spacing: .4px;
-    color: rgba(215,233,255,.84);
+    color: rgba(229,241,255,.94);
     text-align: center;
     min-height: 44px;
+    border: 1px solid rgba(47,126,245,.34);
+    border-radius: 12px;
+    background: rgba(5,12,24,.36);
+    backdrop-filter: blur(6px);
     opacity: 0;
     animation: fade-up .6s ease-out 2.15s forwards;
     text-shadow:
@@ -352,7 +356,7 @@
     left: 20px;
     top: 20px;
     z-index: 20;
-    display: flex;
+    display: none;
     gap: 8px;
     opacity: 0;
     animation: fade-up .5s ease-out 2.2s forwards;
@@ -480,6 +484,7 @@
   const resetBtn = document.getElementById('reset-video-btn');
   const soundBtn = document.getElementById('toggle-sound-btn');
   const fileInput = document.getElementById('video-file-input');
+  const videoTools = document.querySelector('.video-tools');
   const typewriterLine = document.getElementById('typewriter-line');
   const typewriterPhrases = [
     'Informes técnicos en segundos, con trazabilidad completa.',
@@ -519,6 +524,12 @@
       const savedVideo = localStorage.getItem(STORAGE_KEY);
       if (savedVideo) setVideoSource(savedVideo);
     } catch (_) {}
+  }
+
+  function initVideoToolsVisibility() {
+    if (!videoTools) return;
+    const showTools = new URLSearchParams(window.location.search).get('debugVideo') === '1';
+    videoTools.style.display = showTools ? 'flex' : 'none';
   }
 
   function handleVideoUpload(event) {
@@ -580,6 +591,7 @@
   document.addEventListener('touchstart', requestVideoPlay, { once: true });
   document.addEventListener('keydown', requestVideoPlay, { once: true });
   loadSavedVideo();
+  initVideoToolsVisibility();
   applySavedSoundPreference();
   requestVideoPlay();
   if (bgVideo?.readyState >= 2) markVideoReady();
