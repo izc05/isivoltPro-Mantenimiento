@@ -149,6 +149,9 @@
     font-weight: 900;
     letter-spacing: -1px;
     line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     color: #fff;
     opacity: 0; transform: translateY(20px);
     animation: fade-up .8s ease-out 1.0s forwards;
@@ -177,6 +180,9 @@
     animation: fade-up .7s ease-out 1.5s forwards;
   }
   .mod-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 9px; letter-spacing: 1.5px;
     color: rgba(255,255,255,.4);
@@ -189,6 +195,10 @@
   .mod-tag.hi {
     color: var(--acc); border-color: rgba(47,126,245,.4);
     background: rgba(47,126,245,.08);
+  }
+  .mod-tag .mod-ico {
+    font-size: 11px;
+    line-height: 1;
   }
 
   /* Divider */
@@ -316,12 +326,10 @@
 
   /* ── TYPEWRITER BANNER ───────────────────────────── */
   .typewriter-banner {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 12;
-    width: min(92vw, 740px);
+    position: relative;
+    z-index: 10;
+    width: min(92vw, 620px);
+    margin: 20px auto 0;
     padding: 12px 16px;
     font-family: 'JetBrains Mono', monospace;
     font-size: clamp(10px, 2.5vw, 13px);
@@ -381,6 +389,8 @@
     .logo-mark { width: 60px; height: 60px; font-size: 28px; }
     .modules { gap: 6px; }
     .mod-tag { font-size: 8px; padding: 4px 8px; }
+    .subtitle { letter-spacing: 4px; }
+    .typewriter-banner { margin-top: 16px; font-size: 11px; padding: 10px 12px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -429,11 +439,6 @@
   <!-- Coordenadas decorativas -->
   <div class="coords">37.1773° N · 3.5986° W · GRANADA</div>
 
-  <!-- Frases de app en estilo máquina de escribir -->
-  <div class="typewriter-banner" aria-live="polite">
-    <span id="typewriter-line" class="typewriter-line"></span>
-  </div>
-
   <!-- Contenido principal -->
   <div class="splash">
     <div class="tech-line">Sistema de gestión · v1.0 · 2026</div>
@@ -444,8 +449,9 @@
     <div class="subtitle">Servicio de Mantenimiento</div>
 
     <div class="modules">
-      <span class="mod-tag hi">Informes</span>
-      <span class="mod-tag hi">OT</span>
+      <span class="mod-tag hi"><span class="mod-ico" aria-hidden="true">📄</span>Informes</span>
+      <span class="mod-tag hi"><span class="mod-ico" aria-hidden="true">📅</span>Agenda</span>
+      <span class="mod-tag hi"><span class="mod-ico" aria-hidden="true">🛠️</span>OT</span>
       <span class="mod-tag hi">Historial</span>
       <span class="mod-tag">Instalaciones</span>
       <span class="mod-tag">Estadísticas</span>
@@ -454,6 +460,11 @@
 
     <div class="divider"></div>
     <div class="hospital">ISI<span>VOLTPRO</span> · Servicio de Mantenimiento</div>
+
+    <!-- Frases de app en estilo máquina de escribir -->
+    <div class="typewriter-banner" aria-live="polite">
+      <span id="typewriter-line" class="typewriter-line"></span>
+    </div>
   </div>
 
   <!-- Barra de carga -->
