@@ -1216,7 +1216,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="guide-actions">
         <button class="btn-ghost acc sm" onclick="goPage('informes')">📝 Registrar intervención</button>
         <button class="btn-ghost sm" onclick="goPage('ot')">🛠️ Priorizar OT</button>
-        <button class="btn-ghost green sm" onclick="goPage('ot')">📅 Ver agenda</button>
+        <button class="btn-ghost green sm" onclick="goPage('agenda')">📅 Ver agenda</button>
       </div>
     </div>
 
@@ -1580,15 +1580,15 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 </main>
 
 <!-- ═══════════════════════════════════════════════════
-     PÁGINA: OT / CALENDARIO
+     PÁGINA: AGENDA
 ═══════════════════════════════════════════════════ -->
-<main class="page" id="page-ot">
+<main class="page" id="page-agenda">
   <div class="wrap">
 
     <div class="hero reveal">
-      <div class="hero-badge">🛠️ ÓRDENES DE TRABAJO</div>
-      <div class="hero-title">Gestión OT y calendario</div>
-      <div class="hero-sub">Vista mensual de preventivos, estados en color y seguimiento por prioridad.</div>
+      <div class="hero-badge">📅 AGENDA DE MANTENIMIENTO</div>
+      <div class="hero-title">Planificación mensual</div>
+      <div class="hero-sub">Visualiza OT y PM por fecha, prioridad y estado en un calendario claro.</div>
       <div style="margin-top:10px;font-size:11px;color:var(--t2)">Instalación activa en formulario: <strong id="ot-inst-linked" style="color:var(--t1)">—</strong></div>
     </div>
 
@@ -1599,13 +1599,8 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="kpi-card"><div class="kpi-n" id="ot-mes">0</div><div class="kpi-l">Este mes</div></div>
     </div>
 
-    <div class="ot-tabs reveal">
-      <button class="ot-tab active" id="ot-tab-agenda" onclick="setOTView('agenda')">📅 Agenda</button>
-      <button class="ot-tab" id="ot-tab-listado" onclick="setOTView('listado')">🛠️ OT</button>
-    </div>
-
     <!-- Calendario visual -->
-    <div class="card reveal ot-panel active" id="ot-panel-agenda">
+    <div class="card reveal">
       <div class="cal-shell">
         <div class="cal-nav">
           <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
@@ -1625,9 +1620,21 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <!-- Filtros OT -->
-    
-    <div class="card reveal ot-panel" id="ot-panel-listado">
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════
+     PÁGINA: OT
+═══════════════════════════════════════════════════ -->
+<main class="page" id="page-ot">
+  <div class="wrap">
+    <div class="hero reveal">
+      <div class="hero-badge">🛠️ ÓRDENES DE TRABAJO</div>
+      <div class="hero-title">Gestión de OT</div>
+      <div class="hero-sub">Listado completo con filtros, edición rápida y control de estados.</div>
+    </div>
+
+    <div class="card reveal">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">OT guardadas</div><div class="sec-line"></div></div>
       <div class="ot-toolbar">
         <button class="btn-ghost acc" onclick="newOT()">✨ Nueva OT</button>
@@ -1981,8 +1988,11 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   <button class="nav-btn" id="nb-historial"   onclick="goPage('historial')">
     <span class="ico">📁</span><span>Historial</span>
   </button>
-  <button class="nav-btn" id="nb-ot"          onclick="goPage('ot')" style="position:relative">
+  <button class="nav-btn" id="nb-agenda"      onclick="goPage('agenda')">
     <span class="ico">📅</span><span>Agenda</span>
+  </button>
+  <button class="nav-btn" id="nb-ot"          onclick="goPage('ot')" style="position:relative">
+    <span class="ico">🛠️</span><span>OT</span>
   </button>
   <button class="nav-btn" id="nb-checklists" onclick="goPage('checklists')">
     <span class="ico">✅</span><span>Checklist</span>
@@ -2214,7 +2224,6 @@ const App = {
   calYear:  new Date().getFullYear(),
   calMonth: new Date().getMonth(),
   histTab: 'todo',
-  otView: 'agenda',
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2280,22 +2289,24 @@ function goPage(id) {
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
-  ['inicio','informes','historial','ot','checklists','reglamentos','instalaciones','ajustes'].forEach(n => {
+  ['inicio','informes','historial','agenda','ot','checklists','reglamentos','instalaciones','ajustes'].forEach(n => {
     document.getElementById('nb-' + n)?.classList.toggle('active', n === id);
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
   initMotion();
   // FAB: visible en historial y OT
   const fab = document.getElementById('fab-nuevo');
-  if (fab) fab.classList.toggle('hidden', !['historial','ot','checklists','reglamentos','rebt','instalaciones','stats'].includes(id));
+  if (fab) fab.classList.toggle('hidden', !['historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','stats'].includes(id));
   if (id === 'historial')    renderHistorial();
-  if (id === 'ot')           {
+  if (id === 'agenda')       {
     const sel = document.getElementById('f-instalacion');
     const otInst = document.getElementById('ot-inst-linked');
     if (otInst) otInst.textContent = sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '—';
+    renderCalGrid();
+  }
+  if (id === 'ot')           {
     fillOTInstallationSelect();
-    setOTView(App.otView || 'agenda');
-    renderOTList(); renderCalGrid();
+    renderOTList();
     const box = document.getElementById('ot-editor-wrap');
     const edit = document.getElementById('ot-edit-id')?.value;
     if (box && !edit) box.classList.remove('show');
@@ -2310,14 +2321,6 @@ function goPage(id) {
   }
   if (id === 'stats')        renderStats();
   if (id === 'inicio')       renderHome();
-}
-
-function setOTView(view = 'agenda') {
-  App.otView = view === 'listado' ? 'listado' : 'agenda';
-  document.getElementById('ot-tab-agenda')?.classList.toggle('active', App.otView === 'agenda');
-  document.getElementById('ot-tab-listado')?.classList.toggle('active', App.otView === 'listado');
-  document.getElementById('ot-panel-agenda')?.classList.toggle('active', App.otView === 'agenda');
-  document.getElementById('ot-panel-listado')?.classList.toggle('active', App.otView === 'listado');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -3697,7 +3700,7 @@ function renderHome() {
       const pr = (o.prioridad || 'MEDIA').toUpperCase();
       const prColors = { URGENTE: 'var(--pu)', ALTA: 'var(--pa)', MEDIA: 'var(--pm)', BAJA: 'var(--pb)' };
       const dot = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${prColors[pr]||'var(--pm)'};margin-right:4px;vertical-align:middle"></span>`;
-      return `<div class="mini-item" onclick="goPage('ot')">
+      return `<div class="mini-item" onclick="goPage('agenda')">
         <b>${dot}${esc(o.title || 'OT')}</b>
         <span>${esc(o.fecha || 'Sin fecha')} · ${esc(o.zona || 'Sin zona')} · ${esc(o.estado || 'Planificada')}</span>
       </div>`;
