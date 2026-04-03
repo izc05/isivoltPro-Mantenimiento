@@ -425,7 +425,8 @@
   <div class="version">IVP v1.0 · HUCSC · 2026</div>
 
 <script>
-  const STORAGE_KEY = 'ivp-intro-video-dataurl';
+  const STORAGE_KEY = 'ivp_intro_video_session';
+  const LEGACY_STORAGE_KEY = 'ivp-intro-video-dataurl';
   const INTRO_SOUND_KEY = 'ivp_intro_sound_enabled';
   const SESSION_KEY = 'ivp_session_active';
   const bgVideo = document.getElementById('bg-video');
@@ -443,8 +444,10 @@
 
   function loadSavedVideo() {
     try {
-      const savedVideo = localStorage.getItem(STORAGE_KEY);
+      const savedVideo = sessionStorage.getItem(STORAGE_KEY);
       if (savedVideo) setVideoSource(savedVideo);
+      const legacyVideo = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacyVideo) localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch (_) {}
   }
 
@@ -455,22 +458,31 @@
       alert('Selecciona un archivo de vídeo válido.');
       return;
     }
+    const MAX_PERSIST_SIZE = 2 * 1024 * 1024;
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
       if (typeof result !== 'string') return;
+      setVideoSource(result);
       try {
-        localStorage.setItem(STORAGE_KEY, result);
-        setVideoSource(result);
+        if (file.size <= MAX_PERSIST_SIZE) {
+          sessionStorage.setItem(STORAGE_KEY, result);
+        } else {
+          sessionStorage.removeItem(STORAGE_KEY);
+          alert('Vídeo cargado para esta sesión, pero no se guardará al recargar porque supera 2 MB.');
+        }
       } catch (_) {
-        alert('El vídeo es demasiado grande para guardarlo en el navegador. Usa uno más corto o comprimido.');
+        alert('No se pudo guardar el vídeo en sesión. Se usará temporalmente hasta recargar la página.');
       }
     };
     reader.readAsDataURL(file);
   }
 
   function resetVideoToDefault() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch (_) {}
     setVideoSource('intro.mp4');
   }
 

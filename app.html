@@ -1887,6 +1887,7 @@ const DB = (() => {
 'use strict';
 
 const SESSION_KEY = 'ivp_session_active';
+const LEGACY_VIDEO_KEY = 'ivp-intro-video-dataurl';
 
 /* ══════════════════════════════════════════════════════════
    1. ESTADO GLOBAL
@@ -1914,6 +1915,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.href = 'index.html';
     return;
   }
+  try { localStorage.removeItem(LEGACY_VIDEO_KEY); } catch (_) {}
   DB.loadGitHubConfig();
   await DB.init();
   applyTheme();
