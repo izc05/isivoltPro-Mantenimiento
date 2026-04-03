@@ -343,20 +343,27 @@
     .modules { gap: 6px; }
     .mod-tag { font-size: 8px; padding: 4px 8px; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
   </style>
 </head>
 <body>
 
   <!-- Vídeo de fondo -->
-  <video id="bg-video" autoplay muted loop playsinline>
+  <video id="bg-video" autoplay muted loop playsinline aria-label="Vídeo de fondo">
     <source src="intro.mp4" type="video/mp4">
   </video>
 
   <!-- Herramientas de vídeo -->
   <div class="video-tools">
-    <button class="tool-btn" id="upload-video-btn" type="button">Subir vídeo intro</button>
-    <button class="tool-btn" id="reset-video-btn" type="button">Restaurar</button>
-    <button class="tool-btn" id="toggle-sound-btn" type="button">🔇 Sonido OFF</button>
+    <button class="tool-btn" id="upload-video-btn" type="button" aria-label="Subir vídeo de introducción">Subir vídeo intro</button>
+    <button class="tool-btn" id="reset-video-btn" type="button" aria-label="Restaurar vídeo de introducción">Restaurar</button>
+    <button class="tool-btn" id="toggle-sound-btn" type="button" aria-label="Activar o desactivar sonido">🔇 Sonido OFF</button>
     <input id="video-file-input" type="file" accept="video/mp4,video/webm,video/ogg">
   </div>
 
@@ -417,7 +424,7 @@
   </div>
 
   <!-- Botón de entrada -->
-  <button class="enter-btn" id="enter-btn" onclick="enterApp()">
+  <button class="enter-btn" id="enter-btn" onclick="enterApp()" aria-label="Acceder al sistema">
     Acceder al sistema →
   </button>
 
