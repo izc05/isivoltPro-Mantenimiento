@@ -314,6 +314,39 @@
     opacity: 0; animation: fade-up .5s ease-out 2.3s forwards;
   }
 
+  /* ── TYPEWRITER BANNER ───────────────────────────── */
+  .typewriter-banner {
+    position: fixed;
+    left: 50%;
+    bottom: 118px;
+    transform: translateX(-50%);
+    z-index: 12;
+    width: min(92vw, 740px);
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(47,126,245,.35);
+    background: rgba(3,9,18,.62);
+    backdrop-filter: blur(8px);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(10px, 2.5vw, 13px);
+    letter-spacing: .4px;
+    color: rgba(205,226,255,.9);
+    text-align: center;
+    min-height: 44px;
+    opacity: 0;
+    animation: fade-up .6s ease-out 2.15s forwards;
+  }
+  .typewriter-line::after {
+    content: '▋';
+    margin-left: 4px;
+    color: var(--acc);
+    animation: caret-blink .9s steps(1, end) infinite;
+  }
+  @keyframes caret-blink {
+    0%, 45% { opacity: 1; }
+    46%, 100% { opacity: .15; }
+  }
+
   /* ── VIDEO UPLOAD ─────────────────────────────────── */
   .video-tools {
     position: fixed;
@@ -393,6 +426,11 @@
   <!-- Coordenadas decorativas -->
   <div class="coords">37.1773° N · 3.5986° W · GRANADA</div>
 
+  <!-- Frases de app en estilo máquina de escribir -->
+  <div class="typewriter-banner" aria-live="polite">
+    <span id="typewriter-line" class="typewriter-line"></span>
+  </div>
+
   <!-- Contenido principal -->
   <div class="splash">
     <div class="tech-line">Sistema de gestión · v1.0 · 2026</div>
@@ -443,6 +481,13 @@
   const resetBtn = document.getElementById('reset-video-btn');
   const soundBtn = document.getElementById('toggle-sound-btn');
   const fileInput = document.getElementById('video-file-input');
+  const typewriterLine = document.getElementById('typewriter-line');
+  const typewriterPhrases = [
+    'Informes técnicos en segundos, con trazabilidad completa.',
+    'OT, checklist e historial unificados para mantenimiento hospitalario.',
+    'Reglamento REBT dividido en ITC para consulta rápida en campo.',
+    'Activos, fotos y documentación centralizados en una sola app.'
+  ];
 
   function setVideoSource(videoSrc) {
     if (!bgVideo) return;
@@ -519,6 +564,43 @@
   loadSavedVideo();
   applySavedSoundPreference();
   if (bgVideo?.readyState >= 2) markVideoReady();
+
+  function startTypewriterLoop() {
+    if (!typewriterLine || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (typewriterLine) typewriterLine.textContent = typewriterPhrases[0];
+      return;
+    }
+    let phraseIdx = 0;
+    let charIdx = 0;
+    let deleting = false;
+
+    const step = () => {
+      const current = typewriterPhrases[phraseIdx];
+      typewriterLine.textContent = current.slice(0, charIdx);
+
+      if (!deleting) {
+        if (charIdx < current.length) {
+          charIdx += 1;
+          setTimeout(step, 42);
+          return;
+        }
+        deleting = true;
+        setTimeout(step, 1500);
+        return;
+      }
+
+      if (charIdx > 0) {
+        charIdx -= 1;
+        setTimeout(step, 22);
+        return;
+      }
+      deleting = false;
+      phraseIdx = (phraseIdx + 1) % typewriterPhrases.length;
+      setTimeout(step, 240);
+    };
+    step();
+  }
+  startTypewriterLoop();
 
   // Contador de progreso
   let pct = 0;

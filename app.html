@@ -763,6 +763,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .reg-chip{font-size:10px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--t2)}
 .reg-card ul{padding-left:18px;color:var(--t2);font-size:12px;line-height:1.5}
 .reg-card li{margin:3px 0}
+.reg-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.reg-toolbar input{flex:1;min-width:220px}
+.reg-count{font-size:11px;font-family:var(--mono);color:var(--t2);padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--s2)}
+.reg-item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:linear-gradient(160deg,var(--s2),var(--s3))}
+.reg-item strong{font-family:var(--mono);font-size:12px;color:var(--acc)}
+.reg-item span{font-size:12px;color:var(--t2)}
+.reg-empty{font-size:12px;color:var(--t2);padding:8px 2px}
 .check-hub{display:grid;gap:10px}
 
 /* ── EMPTY STATE ─────────────────────────────────────────── */
@@ -1681,11 +1688,15 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     <div class="hero reveal">
       <div class="hero-badge">📚 NORMATIVA</div>
       <div class="hero-title">Reglamentos técnicos</div>
-      <div class="hero-sub">Base inicial para estructurar reglamentos REBT, RITE y otras especialidades.</div>
+      <div class="hero-sub">REBT desglosado en sus 52 ITC-BT para localizar cada instrucción en segundos.</div>
     </div>
 
     <div class="card reveal">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Catálogo inicial</div><div class="sec-line"></div></div>
+      <div class="reg-toolbar">
+        <input type="text" id="reg-search" placeholder="Buscar reglamento, ITC o palabra clave..." oninput="renderRegulations()">
+        <div class="reg-count" id="reg-count">0 resultados</div>
+      </div>
       <div class="reg-grid" id="reg-grid"></div>
     </div>
   </div>
@@ -2349,11 +2360,74 @@ const CHECKLISTS = {
   'Gases medicinales':['Verificar cierre y estanqueidad del punto intervenido.','Comprobar presión y funcionamiento del ramal.','Revisar etiquetado y señalización.','Tomar foto del punto reparado.'],
 };
 const REGULATIONS = [
-  { code: 'REBT', area: 'Electricidad BT', docs: ['Cuadros y protecciones en baja tensión.','ITC-BT aplicables por área hospitalaria.','Frecuencia de inspecciones y registro de medidas.'] },
+  { code: 'REBT', area: 'Electricidad BT', docs: ['Reglamento electrotécnico de baja tensión.','Consulta por ITC-BT para localizar rápidamente requisitos aplicables.','Incluye desglose completo de ITC-BT-01 a ITC-BT-52.'] },
   { code: 'RITE', area: 'Climatización', docs: ['Mantenimiento preventivo de equipos térmicos.','Control de calidad ambiental interior.','Protocolos de revisión y eficiencia energética.'] },
   { code: 'PCI', area: 'Protección contra incendios', docs: ['Extinción, detección y señalización.','Pruebas periódicas obligatorias.','Trazabilidad de actuaciones y partes.'] },
   { code: 'GASES MED', area: 'Gases medicinales', docs: ['Verificación de presión y estanqueidad.','Seguridad en tomas y válvulas de sector.','Plan de revisiones por zonas críticas.'] },
 ];
+const REBT_ITC = Array.from({ length: 52 }, (_, idx) => {
+  const n = idx + 1;
+  const key = String(n).padStart(2, '0');
+  const titled = {
+    '01': 'Terminología y definiciones',
+    '02': 'Normas de referencia',
+    '03': 'Empresas instaladoras y documentación',
+    '04': 'Documentación y puesta en servicio',
+    '05': 'Verificaciones e inspecciones',
+    '06': 'Redes aéreas para distribución en BT',
+    '07': 'Redes subterráneas para distribución en BT',
+    '08': 'Sistemas de conexión del neutro',
+    '09': 'Instalaciones de alumbrado exterior',
+    '10': 'Previsión de cargas para suministros en BT',
+    '11': 'Redes de distribución de energía eléctrica',
+    '12': 'Instalaciones de enlace',
+    '13': 'Instalaciones interiores o receptoras',
+    '14': 'Prescripciones generales de conductores',
+    '15': 'Sistemas de instalación de conductores',
+    '16': 'Instalaciones de puesta a tierra',
+    '17': 'Dispositivos generales e individuales de mando y protección',
+    '18': 'Instalaciones interiores en viviendas',
+    '19': 'Instalaciones interiores en locales comerciales',
+    '20': 'Instalaciones interiores en oficinas',
+    '21': 'Instalaciones interiores en locales con riesgo de incendio',
+    '22': 'Instalaciones interiores en locales de pública concurrencia',
+    '23': 'Instalaciones interiores en piscinas y fuentes',
+    '24': 'Instalaciones interiores en quirófanos y salas médicas',
+    '25': 'Instalaciones en obras y emplazamientos provisionales',
+    '26': 'Instalaciones en ferias y stands',
+    '27': 'Instalaciones en locales mojados y húmedos',
+    '28': 'Instalaciones en locales con riesgo de corrosión',
+    '29': 'Instalaciones en locales con atmósferas explosivas',
+    '30': 'Instalaciones en locales de características especiales',
+    '31': 'Instalaciones con fines especiales',
+    '32': 'Máquinas de elevación y transporte',
+    '33': 'Instalaciones provisionales y temporales',
+    '34': 'Instalaciones con lámparas de descarga',
+    '35': 'Canalizaciones prefabricadas',
+    '36': 'Instalaciones a muy baja tensión',
+    '37': 'Instalaciones a tensiones especiales',
+    '38': 'Receptores',
+    '39': 'Cables y conductores',
+    '40': 'Instalaciones generadoras de baja tensión',
+    '41': 'Instalaciones receptoras con fines especiales',
+    '42': 'Instalaciones con fines agrícolas y ganaderos',
+    '43': 'Instalaciones en puertos y marinas',
+    '44': 'Instalaciones en edificios con fines sanitarios',
+    '45': 'Instalaciones en establecimientos industriales',
+    '46': 'Instalaciones de para-rayos',
+    '47': 'Instalaciones de receptores para alumbrado',
+    '48': 'Instalaciones de receptores para motores',
+    '49': 'Instalaciones de receptores para calefacción',
+    '50': 'Instalaciones de receptores para señalización y control',
+    '51': 'Infraestructura para recarga de vehículo eléctrico',
+    '52': 'Instalaciones con fines de eficiencia energética'
+  };
+  return {
+    id: `ITC-BT-${key}`,
+    title: titled[key] || `Instrucción técnica complementaria ${key}`,
+    tags: ['REBT', 'Baja tensión', `ITC ${key}`]
+  };
+});
 
 function renderChecklistHub() {
   const specialty = document.getElementById('chk-specialty')?.value || 'Electricidad';
@@ -2379,11 +2453,27 @@ function useChecklistInReport() {
 function renderRegulations() {
   const grid = document.getElementById('reg-grid');
   if (!grid) return;
+  const q = (document.getElementById('reg-search')?.value || '').trim().toLowerCase();
+  const filteredITC = REBT_ITC.filter(itc => {
+    if (!q) return true;
+    return `${itc.id} ${itc.title} ${itc.tags.join(' ')}`.toLowerCase().includes(q);
+  });
+  const count = document.getElementById('reg-count');
+  if (count) count.textContent = `${filteredITC.length} ITC encontradas`;
+
   grid.innerHTML = REGULATIONS.map(reg => `
     <article class="reg-card">
       <div class="reg-head"><span class="reg-code">${esc(reg.code)}</span><span class="reg-chip">${esc(reg.area)}</span></div>
       <ul>${reg.docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>
-    </article>`).join('');
+    </article>`).join('') + `
+    <article class="reg-card">
+      <div class="reg-head"><span class="reg-code">REBT · ITC-BT</span><span class="reg-chip">Desglose 01–52</span></div>
+      ${filteredITC.length ? filteredITC.map(itc => `
+        <div class="reg-item">
+          <strong>${esc(itc.id)}</strong>
+          <span>${esc(itc.title)}</span>
+        </div>`).join('') : '<div class="reg-empty">No hay resultados con esa búsqueda.</div>'}
+    </article>`;
 }
 
 function loadChecklistBySpecialty() {
