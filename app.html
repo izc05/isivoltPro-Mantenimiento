@@ -2210,8 +2210,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         </div>
       </div>
 
-      <button class="btn-primary" onclick="saveInstallation()">💾 Guardar activo</button>
+      <button class="btn-primary" id="inst-save-btn" onclick="saveInstallation()">💾 Guardar activo</button>
       <div class="btn-bar">
+        <button class="btn-ghost" onclick="closeInstallationEditor()">✖️ Cerrar edición</button>
         <button class="btn-ghost" onclick="openMap()">🗺️ Abrir en mapa</button>
         <button class="btn-ghost red" onclick="deleteInstallation(App.editingInstId)">🗑 Borrar activo</button>
       </div>
@@ -2561,6 +2562,7 @@ const DB = (() => {
 'use strict';
 
 const SESSION_KEY = 'ivp_session_active';
+let qrLibPromise = null;
 
 /* ══════════════════════════════════════════════════════════
    1. ESTADO GLOBAL
@@ -2581,6 +2583,7 @@ const App = {
   histTab: 'todo',
   otFotosBefore: [],
   otFotosAfter:  [],
+  instOriginalSnapshot: null,
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2615,6 +2618,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById(id)?.addEventListener('input', () => generateInstallationQR(false));
   });
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
+  bindInstallationEditorEvents();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
   document.getElementById('agenda-modal')?.addEventListener('click', closeAgendaModal);
   document.addEventListener('keydown', (ev) => {
@@ -2622,6 +2626,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();
+  await ensureQRCodeLibrary();
   generateInstallationQR(true);
 });
 
@@ -4102,8 +4107,55 @@ function toggleInstEditor(force) {
   }
 }
 
+function bindInstallationEditorEvents() {
+  const wrap = document.getElementById('inst-editor-wrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('input, textarea, select').forEach(el => {
+    el.addEventListener('input', updateInstallationSaveState);
+    el.addEventListener('change', updateInstallationSaveState);
+  });
+}
+
+function getInstallationFormSnapshot() {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  return JSON.stringify({
+    nombre:        g('inst-nombre'),
+    codigo:        g('inst-codigo'),
+    direccion:     g('inst-direccion'),
+    zona:          g('inst-zona'),
+    tecnico:       g('inst-tecnico'),
+    especialidad:  g('inst-especialidad'),
+    elemento:      g('inst-elemento'),
+    potencia:      g('inst-potencia'),
+    tension:       g('inst-tension'),
+    datosTec:      g('inst-tecnicos'),
+    observaciones: g('inst-observaciones'),
+    qr:            g('inst-qr-text'),
+    foto:          App.instPhotoB64 || '',
+  });
+}
+
+function updateInstallationSaveState() {
+  const btn = document.getElementById('inst-save-btn');
+  if (!btn) return;
+  const editing = !!App.editingInstId;
+  const hasChanges = !editing || App.instOriginalSnapshot !== getInstallationFormSnapshot();
+  btn.disabled = !hasChanges;
+  btn.style.opacity = hasChanges ? '1' : '.55';
+  btn.title = hasChanges ? 'Guardar cambios' : 'No hay cambios pendientes';
+}
+
+function closeInstallationEditor() {
+  toggleInstEditor(false);
+  toast('Edición cerrada sin guardar cambios.');
+}
+
 async function saveInstallation() {
   const g = id => (document.getElementById(id)?.value || '').trim();
+  if (App.editingInstId && App.instOriginalSnapshot === getInstallationFormSnapshot()) {
+    toast('No hay cambios que guardar.');
+    return;
+  }
   if (!g('inst-nombre')) { toast('Escribe el nombre de la instalación.'); return; }
   const qrValue = g('inst-qr-text') || buildInstQRValue();
   const payload = {
@@ -4124,6 +4176,8 @@ async function saveInstallation() {
   };
   await DB.save('instalaciones', payload);
   App.editingInstId = payload.id;
+  App.instOriginalSnapshot = getInstallationFormSnapshot();
+  updateInstallationSaveState();
   populateInstSelect(payload.id);
   renderInstalaciones();
   renderHome();
@@ -4132,13 +4186,14 @@ async function saveInstallation() {
   toast('Instalación guardada.');
 }
 function clearInstForm() {
-  App.editingInstId = ''; App.instPhotoB64 = '';
+  App.editingInstId = ''; App.instPhotoB64 = ''; App.instOriginalSnapshot = null;
   ['inst-nombre','inst-codigo','inst-direccion','inst-zona','inst-tecnico',
    'inst-elemento','inst-potencia','inst-tension','inst-tecnicos','inst-observaciones','inst-qr-text']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const esp = document.getElementById('inst-especialidad'); if (esp) esp.value = '';
   setPhotoPreview('');
   generateInstallationQR();
+  updateInstallationSaveState();
   toggleInstEditor(true);
   toast('Formulario limpio.');
 }
@@ -4173,6 +4228,8 @@ function editInstallation(id) {
   App.editingInstId = inst.id;
   App.instPhotoB64 = inst.foto || '';
   generateInstallationQR();
+  App.instOriginalSnapshot = getInstallationFormSnapshot();
+  updateInstallationSaveState();
   toggleInstEditor(true);
   setTimeout(() => {
     document.getElementById('inst-editor-wrap')?.scrollIntoView({behavior:'smooth', block:'start'});
@@ -4282,11 +4339,18 @@ function openMap(id = '') {
 /* Foto instalación */
 async function handleInstPhoto(e) {
   const file = e.target.files?.[0]; if (!file) return;
-  try { App.instPhotoB64 = await compressImage(file, 1100, .75); setPhotoPreview(App.instPhotoB64); toast('Foto cargada.'); }
-  catch { toast('No se pudo cargar la foto.'); }
-  finally { e.target.value = ''; }
+  try {
+    App.instPhotoB64 = await compressImage(file, 1100, .75);
+    setPhotoPreview(App.instPhotoB64);
+    toast('Foto cargada.');
+  } catch {
+    toast('No se pudo cargar la foto.');
+  } finally {
+    updateInstallationSaveState();
+    e.target.value = '';
+  }
 }
-function removeInstPhoto() { App.instPhotoB64 = ''; setPhotoPreview(''); }
+function removeInstPhoto() { App.instPhotoB64 = ''; setPhotoPreview(''); updateInstallationSaveState(); }
 function setPhotoPreview(src = '') {
   const img = document.getElementById('inst-photo-prev');
   const emp = document.getElementById('inst-photo-empty');
@@ -4307,14 +4371,45 @@ function buildInstQRValue() {
     direccion ? `Ubicación: ${direccion}` : '',
   ].filter(Boolean).join(' | ');
 }
-function generateInstallationQR(force = false) {
+async function ensureQRCodeLibrary() {
+  if (typeof QRCode !== 'undefined') return true;
+  if (qrLibPromise) return qrLibPromise;
+  const candidates = [
+    'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+    'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js'
+  ];
+  qrLibPromise = (async () => {
+    for (const src of candidates) {
+      const loaded = await new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+      if (loaded && typeof QRCode !== 'undefined') return true;
+    }
+    return false;
+  })();
+  const ready = await qrLibPromise;
+  if (!ready) qrLibPromise = null;
+  return ready;
+}
+
+async function generateInstallationQR(force = false) {
   const input = document.getElementById('inst-qr-text');
   const box = document.getElementById('inst-qr-box');
   const meta = document.getElementById('inst-qr-meta');
   if (!input || !box) return;
   if (force || !input.value.trim()) input.value = buildInstQRValue();
   const value = input.value.trim() || buildInstQRValue();
+  const hasQR = await ensureQRCodeLibrary();
   box.innerHTML = '';
+  if (!hasQR) {
+    if (meta) meta.textContent = 'No se pudo cargar el generador de QR. Revisa conexión y vuelve a intentar.';
+    return;
+  }
   try {
     new QRCode(box, { text: value, width: 78, height: 78, correctLevel: QRCode.CorrectLevel.M });
     if (meta) meta.textContent = `Contenido: ${value.slice(0, 90)}${value.length > 90 ? '…' : ''}`;
