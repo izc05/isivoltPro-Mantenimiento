@@ -406,13 +406,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .e-derivada    { background: var(--yellow-s); color: var(--yellow); border: 1px solid var(--yellow); }
 /* Estado OT */
 .ot-Borrador          { background: rgba(100,116,139,.15); color: #94a3b8; border: 1px solid #475569; }
-.ot-Planificada       { background: var(--acc-s);    color: var(--acc);    border: 1px solid var(--acc); }
-.ot-En-curso          { background: var(--orange-s); color: var(--orange); border: 1px solid var(--orange); }
-.ot-En-demora         { background: var(--red-s);    color: var(--red);    border: 1px solid var(--red); }
+.ot-Planificada       { background: var(--yellow-s); color: var(--yellow); border: 1px solid var(--yellow); }
+.ot-En-curso          { background: var(--green-s);  color: var(--green);  border: 1px solid var(--green); }
+.ot-En-demora         { background: rgba(168,85,247,.14); color: #a855f7; border: 1px solid #a855f7; }
 .ot-Observada         { background: var(--yellow-s); color: var(--yellow); border: 1px solid var(--yellow); }
 .ot-Pendiente-material{ background: var(--yellow-s); color: var(--yellow); border: 1px solid var(--yellow); }
 .ot-Pendiente-mat     { background: var(--yellow-s); color: var(--yellow); border: 1px solid var(--yellow); }
-.ot-Cerrada           { background: var(--green-s);  color: var(--green);  border: 1px solid var(--green); }
+.ot-Cerrada           { background: var(--red-s);    color: var(--red);    border: 1px solid var(--red); }
 
 /* ── PRIO INDICATOR (formulario) ────────────────────────── */
 .prio-indicator {
@@ -467,8 +467,8 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   font-size: clamp(36px, 10vw, 72px);
   font-weight: 900;
   letter-spacing: .18em;
-  color: rgba(0, 208, 132, .16);
-  text-shadow: 0 0 22px rgba(0, 208, 132, .14);
+  color: rgba(255, 68, 85, .16);
+  text-shadow: 0 0 22px rgba(255, 68, 85, .14);
   pointer-events:none;
   z-index: 2;
 }
@@ -507,6 +507,65 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .lc-btn.dl    { background: var(--green-s); color: var(--green); }
 .lc-btn.del   { background: var(--red-s);   color: var(--red); }
 .lc-btn:active { opacity: .7; }
+
+.ot-quick-stats{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap:8px;
+  margin: 12px 0;
+}
+.ot-quick-item{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:8px;
+  text-align:center;
+  background: linear-gradient(160deg, var(--s2), var(--s3));
+}
+.ot-quick-item b{
+  display:block;
+  font-family: var(--mono);
+  font-size: 16px;
+}
+.ot-quick-item span{
+  font-size:10px;
+  color:var(--t2);
+}
+.ot-media-wrap{
+  margin-top: 10px;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ot-media-card{
+  border:1px solid var(--border);
+  border-radius: 12px;
+  padding:10px;
+  background: var(--s2);
+}
+.ot-media-card h4{
+  font-size:11px;
+  margin-bottom:7px;
+}
+.ot-media-card .foto-grid{
+  grid-template-columns: repeat(2,1fr);
+}
+.ot-media-summary{
+  margin-top:6px;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.ot-media-chip{
+  font-size:10px;
+  font-family: var(--mono);
+  border-radius:999px;
+  padding:3px 8px;
+  border:1px solid var(--border2);
+  color: var(--t2);
+}
+@media (max-width: 620px){
+  .ot-media-wrap{ grid-template-columns: 1fr; }
+}
 
 
 .lc-detail {
@@ -735,9 +794,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   margin-top:4px;
 }
 .home-state-card.open b{color:var(--acc)}
-.home-state-card.progress b{color:var(--orange)}
-.home-state-card.delay b{color:var(--red)}
-.home-state-card.closed b{color:var(--green)}
+.home-state-card.progress b{color:var(--green)}
+.home-state-card.delay b{color:#a855f7}
+.home-state-card.closed b{color:var(--red)}
 
 .hist-type{
   display:inline-flex;
@@ -879,7 +938,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .pip.a { background: var(--pa); }
 .pip.m { background: var(--pm); }
 .pip.b { background: var(--pb); }
-.pip.ok { background: var(--green); }
+.pip.ok { background: var(--red); }
 .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
 .cal-legend span { font-size: 10px; color: var(--t3); font-family: var(--mono); display: flex; align-items: center; gap: 5px; }
 .cal-legend .pip { display: inline-block; }
@@ -1225,7 +1284,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="home-state-grid">
         <div class="home-state-card open"     data-ico="📋"><b id="home-plan">0</b><span>Planificadas</span></div>
         <div class="home-state-card progress" data-ico="⚙️"><b id="home-proc">0</b><span>En curso</span></div>
-        <div class="home-state-card delay"    data-ico="⏰"><b id="home-dem">0</b><span>En demora</span></div>
+        <div class="home-state-card delay"    data-ico="⏰"><b id="home-dem">0</b><span>Demoradas</span></div>
         <div class="home-state-card closed"   data-ico="✅"><b id="home-cerr">0</b><span>Cerradas</span></div>
       </div>
     </div>
@@ -1648,7 +1707,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
           <option value="">Todos los estados</option>
           <option value="Planificada">Planificadas</option>
           <option value="En curso">En curso</option>
-          <option value="En demora">En demora</option>
+          <option value="En demora">Demorada</option>
           <option value="Observada">Observadas</option>
           <option value="Cerrada">Cerradas</option>
         </select>
@@ -1658,6 +1717,16 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
           <option value="PM">PM</option>
         </select>
         <input id="ot-filter-mes" type="month" onchange="renderOTList()" style="flex:1;min-width:130px;font-size:12px;padding:8px 10px">
+        <select id="ot-sort-mode" onchange="renderOTList()" style="flex:1;min-width:130px;font-size:12px;padding:8px 10px">
+          <option value="prioridad">Ordenar: Prioridad</option>
+          <option value="agenda">Ordenar: Agenda</option>
+        </select>
+      </div>
+      <div class="ot-quick-stats">
+        <div class="ot-quick-item"><b id="ot-kpi-open">0</b><span>Abiertas</span></div>
+        <div class="ot-quick-item"><b id="ot-kpi-curso">0</b><span>En curso</span></div>
+        <div class="ot-quick-item"><b id="ot-kpi-demora">0</b><span>Demoradas</span></div>
+        <div class="ot-quick-item"><b id="ot-kpi-cerr">0</b><span>Cerradas</span></div>
       </div>
       <div id="ot-list" style="margin-top:12px"></div>
     </div>
@@ -1704,6 +1773,24 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         </div>
         <div class="fgrp"><label>Zona</label><input type="text" id="otf-zona" placeholder="Ej: Planta 3 · UCI"></div>
         <div class="fgrp"><label>Nota</label><textarea id="otf-nota" placeholder="Observaciones o recordatorio..."></textarea></div>
+        <div class="ot-media-wrap">
+          <div class="ot-media-card">
+            <h4>📸 Fotos ANTES (máx. 4)</h4>
+            <div class="foto-drop" id="otf-before-drop">
+              <input type="file" id="otf-before-inp" accept="image/*" multiple onchange="addOTFotos(event,'before')">
+              <div class="foto-drop-txt">Añadir fotos antes de intervenir</div>
+            </div>
+            <div class="foto-grid" id="otf-before-grid"></div>
+          </div>
+          <div class="ot-media-card">
+            <h4>✅ Fotos DESPUÉS (máx. 4)</h4>
+            <div class="foto-drop" id="otf-after-drop">
+              <input type="file" id="otf-after-inp" accept="image/*" multiple onchange="addOTFotos(event,'after')">
+              <div class="foto-drop-txt">Añadir fotos tras finalizar</div>
+            </div>
+            <div class="foto-grid" id="otf-after-grid"></div>
+          </div>
+        </div>
         <div class="btn-bar">
           <button class="btn-primary" onclick="saveStandaloneOT()">💾 Guardar OT</button>
           <button class="btn-ghost" onclick="clearOTForm()">✨ Nueva ficha</button>
@@ -2224,6 +2311,8 @@ const App = {
   calYear:  new Date().getFullYear(),
   calMonth: new Date().getMonth(),
   histTab: 'todo',
+  otFotosBefore: [],
+  otFotosAfter:  [],
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2307,6 +2396,7 @@ function goPage(id) {
   if (id === 'ot')           {
     fillOTInstallationSelect();
     renderOTList();
+    renderOTFotos();
     const box = document.getElementById('ot-editor-wrap');
     const edit = document.getElementById('ot-edit-id')?.value;
     if (box && !edit) box.classList.remove('show');
@@ -2425,6 +2515,43 @@ function renderFotos() {
       <button class="foto-rm" onclick="removeFoto(${i})">✕</button>
     </div>`).join('');
   if (badge) { badge.textContent = App.fotos.length || ''; badge.style.display = App.fotos.length ? 'block' : 'none'; }
+}
+
+function addOTFotos(e, kind = 'before') {
+  const key = kind === 'after' ? 'otFotosAfter' : 'otFotosBefore';
+  const files = [...(e.target.files || [])];
+  const rem = 4 - App[key].length;
+  if (rem <= 0) { toast('Máximo 4 fotos por bloque.'); return; }
+  Promise.all(files.slice(0, rem).map(f => compressImage(f, 1280, .72)))
+    .then(results => {
+      results.forEach((b64, i) => App[key].push({ b64, name: files[i].name || `foto-${Date.now()}` }));
+      renderOTFotos();
+      toast(`${results.length} foto(s) añadida(s).`);
+    }).catch(() => toast('Error procesando fotos de OT.'));
+  e.target.value = '';
+}
+function removeOTFoto(kind = 'before', i = 0) {
+  const key = kind === 'after' ? 'otFotosAfter' : 'otFotosBefore';
+  App[key].splice(i, 1);
+  renderOTFotos();
+}
+function renderOTFotos() {
+  const cfg = [
+    { kind:'before', key:'otFotosBefore', grid:'otf-before-grid', drop:'otf-before-drop' },
+    { kind:'after',  key:'otFotosAfter',  grid:'otf-after-grid',  drop:'otf-after-drop' }
+  ];
+  cfg.forEach(({ kind, key, grid, drop }) => {
+    const g = document.getElementById(grid);
+    const d = document.getElementById(drop);
+    if (!g || !d) return;
+    d.classList.toggle('has', App[key].length > 0);
+    g.innerHTML = App[key].map((f, i) => `
+      <div class="foto-item">
+        <img src="${f.b64}" alt="foto ${kind}-${i+1}">
+        <button class="foto-rm" onclick="removeOTFoto('${kind}',${i})">✕</button>
+      </div>
+    `).join('');
+  });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -3003,7 +3130,7 @@ function otEstLabel(est) {
     Borrador:'Borrador',
     Planificada:'Planificada',
     'En curso':'En curso',
-    'En demora':'En demora',
+    'En demora':'Demorada',
     Observada:'Observada',
     'Pendiente material':'Pend. material',
     Cerrada:'Cerrada'
@@ -3116,6 +3243,9 @@ function clearOTForm() {
   set('otf-estado','Planificada');
   set('otf-prioridad','MEDIA');
   set('otf-tipo','OT');
+  App.otFotosBefore = [];
+  App.otFotosAfter = [];
+  renderOTFotos();
   fillOTInstallationSelect('');
   toggleOTEditor(true);
   setTimeout(()=>document.getElementById('otf-title')?.focus(), 60);
@@ -3138,7 +3268,9 @@ async function saveStandaloneOT() {
     nota: g('otf-nota'),
     tipo: g('otf-tipo') || (g('otf-frecuencia') ? 'PM' : 'OT'),
     instalacionId: g('otf-instalacion'),
-    instalacionNombre: sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : ''
+    instalacionNombre: sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '',
+    fotosAntes: App.otFotosBefore.map(f => f.b64),
+    fotosDespues: App.otFotosAfter.map(f => f.b64),
   };
   if (!ot.fecha) { toast('Indica una fecha planificada.'); return; }
   await DB.save('ots', ot);
@@ -3160,6 +3292,9 @@ function editOTStandalone(id) {
   s('otf-frecuencia', o.frecuencia);
   s('otf-nota', o.nota);
   s('otf-tipo', o.tipo || 'OT');
+  App.otFotosBefore = (o.fotosAntes || []).map((b64, i) => ({ b64, name: `antes-${i+1}` }));
+  App.otFotosAfter = (o.fotosDespues || []).map((b64, i) => ({ b64, name: `despues-${i+1}` }));
+  renderOTFotos();
   fillOTInstallationSelect(o.instalacionId || '');
   toggleOTEditor(true);
   toast('OT cargada para edición.');
@@ -3176,14 +3311,29 @@ function renderOTList() {
   const fEst  = document.getElementById('ot-filter-est')?.value || '';
   const fTipo = document.getElementById('ot-filter-tipo')?.value || '';
   const fMes  = document.getElementById('ot-filter-mes')?.value || '';
+  const sortMode = document.getElementById('ot-sort-mode')?.value || 'prioridad';
   const q = (document.getElementById('ot-search')?.value || '').trim().toLowerCase();
   let items = DB.getAll('ots');
   if (fEst)  items = items.filter(o => o.estado === fEst);
   if (fTipo) items = items.filter(o => o.tipo === fTipo);
   if (fMes)  items = items.filter(o => (o.fecha||o.planfecha||'').startsWith(fMes));
   if (q) items = items.filter(o => [o.title,o.instalacionNombre,o.zona,o.especialidad,o.nota].filter(Boolean).join(' ').toLowerCase().includes(q));
+  const kOpen = document.getElementById('ot-kpi-open');
+  const kCurso = document.getElementById('ot-kpi-curso');
+  const kDemora = document.getElementById('ot-kpi-demora');
+  const kCerr = document.getElementById('ot-kpi-cerr');
+  if (kOpen) kOpen.textContent = String(items.filter(o => (o.estado || 'Planificada') !== 'Cerrada').length);
+  if (kCurso) kCurso.textContent = String(items.filter(o => (o.estado || '') === 'En curso').length);
+  if (kDemora) kDemora.textContent = String(items.filter(o => (o.estado || '') === 'En demora').length);
+  if (kCerr) kCerr.textContent = String(items.filter(o => (o.estado || '') === 'Cerrada').length);
   const prioOrd = { URGENTE:0, ALTA:1, MEDIA:2, BAJA:3 };
   items.sort((a,b) => {
+    const closedA = (a.estado || '') === 'Cerrada' ? 1 : 0;
+    const closedB = (b.estado || '') === 'Cerrada' ? 1 : 0;
+    if (closedA !== closedB) return closedA - closedB;
+    if (sortMode === 'agenda') {
+      return (a.fecha||'').localeCompare(b.fecha||'') || ((a.title||'').localeCompare(b.title||''));
+    }
     const pa = prioOrd[(a.prioridad||'MEDIA').toUpperCase()] ?? 2;
     const pb = prioOrd[(b.prioridad||'MEDIA').toUpperCase()] ?? 2;
     return pa - pb || (a.fecha||'').localeCompare(b.fecha||'');
@@ -3208,6 +3358,10 @@ function renderOTList() {
             <span class="badge ${otEstClass(est)}">${otEstLabel(est)}</span>
             ${o.frecuencia ? `<span class="badge" style="background:var(--acc-s);color:var(--acc);border:1px solid var(--acc)">🔄 ${esc(o.frecuencia)}</span>` : ''}
           </div>
+          <div class="ot-media-summary">
+            <span class="ot-media-chip">📸 Antes: ${(o.fotosAntes || []).length}</span>
+            <span class="ot-media-chip">✅ Después: ${(o.fotosDespues || []).length}</span>
+          </div>
           <div class="lc-detail">
             <div class="lc-detail-row">🏷️ <strong>Instalación:</strong> <span>${esc(inst)}</span></div>
             ${o.tipo ? `<div class="lc-detail-row">📂 <strong>Tipo:</strong> <span>${esc(o.tipo)}</span></div>` : ''}
@@ -3216,7 +3370,7 @@ function renderOTList() {
           <div class="ot-state-row">
             ${est !== 'Planificada' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','Planificada')">Planificada</button>` : ''}
             ${est !== 'En curso' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','En curso')">En curso</button>` : ''}
-            ${est !== 'En demora' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','En demora')">Demora</button>` : ''}
+            ${est !== 'En demora' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','En demora')">Demorada</button>` : ''}
             ${est !== 'Observada' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','Observada')">Observada</button>` : ''}
             ${est !== 'Cerrada' ? `<button class="ot-state-btn" onclick="setOTState('${o.id}','Cerrada')">Cerrada</button>` : ''}
           </div>
@@ -3239,6 +3393,7 @@ async function saveOTFromForm() {
   const pr   = data.prioridad || 'MEDIA';
   const sel  = document.getElementById('f-instalacion');
   const editingId = document.getElementById('f-ot-edit-id')?.value || '';
+  const prevOT = editingId ? DB.getById('ots', editingId) : null;
   const ot = {
     id:               editingId || `${Date.now()}`,
     title:            data.elem || data.zona || 'Trabajo planificado',
@@ -3252,7 +3407,9 @@ async function saveOTFromForm() {
     nota:             data.recordatorio,
     tipo:             data.freq ? 'PM' : 'OT',
     instalacionId:    data.instalacionId || '',
-    instalacionNombre: sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : ''
+    instalacionNombre: sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '',
+    fotosAntes:       prevOT?.fotosAntes || [],
+    fotosDespues:     prevOT?.fotosDespues || [],
   };
   await DB.save('ots', ot);
   renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
