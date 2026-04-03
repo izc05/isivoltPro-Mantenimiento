@@ -322,19 +322,18 @@
     transform: translateX(-50%);
     z-index: 12;
     width: min(92vw, 740px);
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid rgba(47,126,245,.35);
-    background: rgba(3,9,18,.62);
-    backdrop-filter: blur(8px);
+    padding: 8px 10px;
     font-family: 'JetBrains Mono', monospace;
     font-size: clamp(10px, 2.5vw, 13px);
     letter-spacing: .4px;
-    color: rgba(205,226,255,.9);
+    color: rgba(215,233,255,.84);
     text-align: center;
     min-height: 44px;
     opacity: 0;
     animation: fade-up .6s ease-out 2.15s forwards;
+    text-shadow:
+      0 0 8px rgba(47,126,245,.35),
+      0 0 20px rgba(3,9,18,.75);
   }
   .typewriter-line::after {
     content: '▋';
@@ -494,7 +493,20 @@
     bgVideo.classList.remove('ready');
     bgVideo.src = videoSrc;
     bgVideo.load();
-    bgVideo.play().catch(() => {});
+    requestVideoPlay();
+  }
+
+  function requestVideoPlay() {
+    if (!bgVideo) return;
+    const playPromise = bgVideo.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+      playPromise.catch(() => {
+        // Fallback para navegadores que bloquean autoplay con sonido.
+        bgVideo.muted = true;
+        updateSoundButton();
+        bgVideo.play().catch(() => {});
+      });
+    }
   }
 
   function markVideoReady() {
@@ -551,7 +563,7 @@
     if (!bgVideo) return;
     bgVideo.muted = !bgVideo.muted;
     try { localStorage.setItem(INTRO_SOUND_KEY, bgVideo.muted ? '0' : '1'); } catch (_) {}
-    bgVideo.play().catch(() => {});
+    requestVideoPlay();
     updateSoundButton();
   }
 
@@ -561,8 +573,15 @@
   soundBtn?.addEventListener('click', toggleIntroSound);
   bgVideo?.addEventListener('loadeddata', markVideoReady);
   bgVideo?.addEventListener('canplay', markVideoReady);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) requestVideoPlay();
+  });
+  document.addEventListener('click', requestVideoPlay, { once: true });
+  document.addEventListener('touchstart', requestVideoPlay, { once: true });
+  document.addEventListener('keydown', requestVideoPlay, { once: true });
   loadSavedVideo();
   applySavedSoundPreference();
+  requestVideoPlay();
   if (bgVideo?.readyState >= 2) markVideoReady();
 
   function startTypewriterLoop() {
