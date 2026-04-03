@@ -2571,6 +2571,7 @@ const App = {
   page:   'inicio',
   theme:  localStorage.getItem('ivp_theme')  || 'dark',
   accent: localStorage.getItem('ivp_accent') || 'blue',
+  todayKey: fmtDate(new Date()),
   fotos:  [],
   editingInstId: '',
   instPhotoB64:  '',
@@ -2619,6 +2620,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
   bindInstallationEditorEvents();
+  initDayWatcher();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
   document.getElementById('agenda-modal')?.addEventListener('click', closeAgendaModal);
   document.addEventListener('keydown', (ev) => {
@@ -2629,6 +2631,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   await ensureQRCodeLibrary();
   generateInstallationQR(true);
 });
+
+function initDayWatcher() {
+  const refreshIfDayChanged = () => {
+    const nowKey = fmtDate(new Date());
+    if (App.todayKey === nowKey) return;
+    App.todayKey = nowKey;
+    renderHome();
+    renderCalGrid();
+  };
+  window.setInterval(refreshIfDayChanged, 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refreshIfDayChanged();
+  });
+  window.addEventListener('focus', refreshIfDayChanged);
+}
 
 function renderAll() {
   renderHome();
