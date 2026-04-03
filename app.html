@@ -798,6 +798,92 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .home-state-card.delay b{color:#a855f7}
 .home-state-card.closed b{color:var(--red)}
 
+.mini-timeline{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+.timeline-col{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:linear-gradient(160deg,var(--s2),var(--s3));
+  padding:10px;
+}
+.timeline-col h4{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  color:var(--t3);
+  margin-bottom:8px;
+}
+.timeline-item{
+  padding:7px 8px;
+  border-radius:10px;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--border);
+  margin-bottom:7px;
+}
+.timeline-item:last-child{margin-bottom:0}
+.timeline-item b{display:block;font-size:11px;line-height:1.3}
+.timeline-item span{display:block;font-size:10px;color:var(--t2);margin-top:2px}
+.week20-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin:10px 0;
+}
+.week20-kpi{
+  border:1px solid var(--border);
+  border-radius:12px;
+  text-align:center;
+  padding:10px 6px;
+  background:var(--s2);
+}
+.week20-kpi b{display:block;font-size:18px;font-family:var(--mono);color:var(--acc)}
+.week20-kpi span{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em}
+.week20-top{
+  font-size:12px;
+  color:var(--t2);
+  line-height:1.45;
+}
+.agenda-filters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:12px;
+}
+.agenda-chip{
+  border:1px solid var(--border2);
+  background:var(--s2);
+  color:var(--t2);
+  border-radius:999px;
+  padding:7px 12px;
+  font-size:11px;
+  font-weight:700;
+}
+.agenda-chip.active{
+  color:var(--acc);
+  border-color:var(--acc);
+  background:var(--acc-s);
+}
+.agenda-filter-summary{
+  margin-top:10px;
+  display:grid;
+  gap:7px;
+}
+.agenda-filter-summary .mini-item{
+  margin:0;
+}
+.ot-completing{
+  animation: ot-complete-pop .34s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes ot-complete-pop{
+  0%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,208,132,0)}
+  45%{transform:scale(1.012);box-shadow:0 0 0 2px rgba(0,208,132,.32)}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,208,132,0)}
+}
+
 .hist-type{
   display:inline-flex;
   align-items:center;
@@ -1420,6 +1506,24 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     </div>
 
     <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Timeline diario · mañana / tarde</div><div class="sec-line"></div></div>
+      <div class="mini-timeline" id="home-mini-timeline">
+        <div class="timeline-col"><h4>🌅 Mañana</h4><div class="timeline-item"><b>Sin tareas</b><span>Programa OTs con hora para verlas aquí.</span></div></div>
+        <div class="timeline-col"><h4>🌇 Tarde</h4><div class="timeline-item"><b>Sin tareas</b><span>Programa OTs con hora para verlas aquí.</span></div></div>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Semana en 20s</div><div class="sec-line"></div></div>
+      <div class="week20-top" id="week20-summary">Preparando resumen inteligente…</div>
+      <div class="week20-grid">
+        <div class="week20-kpi"><b id="week20-closed">0</b><span>Cierres</span></div>
+        <div class="week20-kpi"><b id="week20-delayed">0</b><span>En demora</span></div>
+        <div class="week20-kpi"><b id="week20-active-spec">—</b><span>Especialidad top</span></div>
+      </div>
+    </div>
+
+    <div class="card reveal">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Próximas tareas</div><div class="sec-line"></div></div>
       <div class="mini-list" id="home-upcoming">
         <div class="mini-item"><b>Cargando…</b></div>
@@ -1778,6 +1882,20 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="kpi-card"><div class="kpi-n" id="ot-mes">0</div><div class="kpi-l">Este mes</div></div>
     </div>
 
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Filtros rápidos</div><div class="sec-line"></div></div>
+      <div class="agenda-filters" id="agenda-filters">
+        <button class="agenda-chip active" data-af="all" onclick="setAgendaQuickFilter('all', this)">Todos</button>
+        <button class="agenda-chip" data-af="urgente" onclick="setAgendaQuickFilter('urgente', this)">Urgentes</button>
+        <button class="agenda-chip" data-af="demora" onclick="setAgendaQuickFilter('demora', this)">En demora</button>
+        <button class="agenda-chip" data-af="sinzona" onclick="setAgendaQuickFilter('sinzona', this)">Sin zona</button>
+        <button class="agenda-chip" data-af="preventivo" onclick="setAgendaQuickFilter('preventivo', this)">Preventivo</button>
+      </div>
+      <div class="mini-list agenda-filter-summary" id="agenda-filter-summary">
+        <div class="mini-item"><b>Sin filtro aplicado.</b></div>
+      </div>
+    </div>
+
     <!-- Calendario visual -->
     <div class="card reveal">
       <div class="cal-shell">
@@ -1880,6 +1998,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         </div>
         <div class="row2">
           <div class="fgrp"><label>Fecha planificada</label><input type="date" id="otf-fecha"></div>
+          <div class="fgrp"><label>Hora estimada</label><input type="time" id="otf-hora"></div>
           <div class="fgrp">
             <label>Prioridad</label>
             <select id="otf-prioridad">
@@ -2442,6 +2561,7 @@ const App = {
   draftTimer:    null,
   calYear:  new Date().getFullYear(),
   calMonth: new Date().getMonth(),
+  agendaQuickFilter: 'all',
   histTab: 'todo',
   otFotosBefore: [],
   otFotosAfter:  [],
@@ -3322,6 +3442,53 @@ function otEstLabel(est) {
 function otEstClass(est) {
   return 'ot-' + (est||'Borrador').replace(/ /g,'-');
 }
+function getOTHour(ot = {}) {
+  const h = (ot.hora || '').trim();
+  return /^\d{2}:\d{2}$/.test(h) ? h : '';
+}
+function formatOTHour(ot = {}) {
+  return getOTHour(ot) || 'Sin hora';
+}
+function isStandalonePWA() {
+  return !!(window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone);
+}
+function triggerLightHaptic(level = 'light') {
+  if (!('vibrate' in navigator)) return;
+  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (!mobile || !isStandalonePWA()) return;
+  const pattern = level === 'success' ? [12, 28, 16] : [10];
+  try { navigator.vibrate(pattern); } catch (_) {}
+}
+function animateOTCompletion(id) {
+  const safeId = (window.CSS && typeof CSS.escape === 'function')
+    ? CSS.escape(String(id))
+    : String(id).replace(/"/g, '\\"');
+  const card = document.querySelector(`[data-ot-id="${safeId}"]`);
+  if (!card) return Promise.resolve();
+  card.classList.remove('ot-completing');
+  void card.offsetWidth;
+  card.classList.add('ot-completing');
+  return new Promise(resolve => setTimeout(resolve, 280));
+}
+function matchesAgendaQuickFilter(ot, filter = 'all') {
+  if (!ot) return false;
+  const pr = (ot.prioridad || '').toUpperCase();
+  const estado = ot.estado || 'Planificada';
+  if (estado === 'Cerrada') return false;
+  if (filter === 'urgente') return pr === 'URGENTE';
+  if (filter === 'demora') return estado === 'En demora';
+  if (filter === 'sinzona') return !String(ot.zona || '').trim();
+  if (filter === 'preventivo') return (ot.tipo || '').toUpperCase() === 'PM' || !!ot.frecuencia;
+  return true;
+}
+function setAgendaQuickFilter(filter = 'all', btn = null) {
+  App.agendaQuickFilter = filter;
+  document.querySelectorAll('#agenda-filters .agenda-chip').forEach(ch => {
+    ch.classList.toggle('active', ch.dataset.af === filter);
+  });
+  if (btn) btn.classList.add('active');
+  renderCalGrid();
+}
 
 /* ══════════════════════════════════════════════════════════
    14. OT / CALENDARIO
@@ -3345,9 +3512,10 @@ function renderCalGrid() {
 
   // Mapa día → OTs
   const ots = DB.getAll('ots');
+  const filtered = ots.filter(o => matchesAgendaQuickFilter(o, App.agendaQuickFilter));
   const dayMap = {};
   const mesStr = `${App.calYear}-${String(App.calMonth+1).padStart(2,'0')}`;
-  ots.forEach(o => {
+  filtered.forEach(o => {
     const d = o.fecha || o.planfecha || '';
     if (!d.startsWith(mesStr)) return;
     if (!dayMap[d]) dayMap[d] = [];
@@ -3381,11 +3549,25 @@ function renderCalGrid() {
   }
 
   // KPIs
-  const enMes = ots.filter(o => (o.fecha||o.planfecha||'').startsWith(mesStr));
-  document.getElementById('ot-total').textContent   = ots.length;
-  document.getElementById('ot-open').textContent    = ots.filter(o => o.estado !== 'Cerrada').length;
-  document.getElementById('ot-pm').textContent      = ots.filter(o => o.tipo === 'PM').length;
+  const enMes = filtered.filter(o => (o.fecha||o.planfecha||'').startsWith(mesStr));
+  document.getElementById('ot-total').textContent   = filtered.length;
+  document.getElementById('ot-open').textContent    = filtered.filter(o => o.estado !== 'Cerrada').length;
+  document.getElementById('ot-pm').textContent      = filtered.filter(o => o.tipo === 'PM').length;
   document.getElementById('ot-mes').textContent     = enMes.length;
+
+  const summary = document.getElementById('agenda-filter-summary');
+  if (summary) {
+    const next = [...filtered]
+      .filter(o => !!(o.fecha || o.planfecha))
+      .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+      .slice(0, 4);
+    summary.innerHTML = next.length
+      ? next.map(o => {
+        const dateKey = o.fecha || o.planfecha || '';
+        return `<div class="mini-item" onclick="showDayTasks('${dateKey}', DB.getAll('ots').filter(t => (t.fecha || t.planfecha || '') === '${dateKey}'))"><b>${esc(o.title || 'OT')}</b><span>${esc(dateKey || 'Sin fecha')} · ${esc(formatOTHour(o))} · ${esc(o.zona || 'Sin zona')}</span></div>`;
+      }).join('')
+      : `<div class="mini-item"><b>Sin coincidencias</b><span>No hay OTs abiertas para este filtro rápido.</span></div>`;
+  }
 }
 
 function changeMonth(dir) {
@@ -3415,7 +3597,7 @@ function showDayTasks(dateKey, tasks) {
         <div class="agenda-task-title">${esc(t.title || 'OT sin título')}</div>
       </div>
       <div class="agenda-task-meta">${esc(t.estado || 'Planificada')} · ${esc(pr)} · ${esc(t.tipo || 'OT')}</div>
-      <div class="agenda-task-meta">${esc(t.zona || 'Sin zona')}${t.instalacionNombre ? ` · ${esc(t.instalacionNombre)}` : ''}</div>
+      <div class="agenda-task-meta">${esc(formatOTHour(t))} · ${esc(t.zona || 'Sin zona')}${t.instalacionNombre ? ` · ${esc(t.instalacionNombre)}` : ''}</div>
     </article>`;
   }).join('') : `<div class="agenda-task"><div class="agenda-task-title">Sin tareas en esta fecha</div></div>`;
 
@@ -3448,7 +3630,7 @@ function fillOTInstallationSelect(selectedId='') {
   if (selectedId) sel.value = selectedId;
 }
 function clearOTForm() {
-  const ids = ['ot-edit-id','otf-title','otf-zona','otf-fecha','otf-frecuencia','otf-nota'];
+  const ids = ['ot-edit-id','otf-title','otf-zona','otf-fecha','otf-hora','otf-frecuencia','otf-nota'];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const set = (id,val) => { const el = document.getElementById(id); if(el) el.value = val; };
   set('otf-esp','');
@@ -3475,6 +3657,7 @@ async function saveStandaloneOT() {
     especialidad: g('otf-esp'),
     estado: g('otf-estado') || 'Planificada',
     fecha: g('otf-fecha'),
+    hora: g('otf-hora'),
     prioridad: (g('otf-prioridad') || 'MEDIA').toUpperCase(),
     frecuencia: g('otf-frecuencia'),
     nota: g('otf-nota'),
@@ -3500,6 +3683,7 @@ function editOTStandalone(id) {
   s('otf-esp', o.especialidad);
   s('otf-estado', o.estado);
   s('otf-fecha', o.fecha);
+  s('otf-hora', o.hora);
   s('otf-prioridad', (o.prioridad || 'MEDIA').toUpperCase());
   s('otf-frecuencia', o.frecuencia);
   s('otf-nota', o.nota);
@@ -3562,12 +3746,12 @@ function renderOTList() {
     const fotosDespues = normalizeOTPhotos(o.fotosDespues || [], 'despues');
     const fotosThumb = [...fotosAntes, ...fotosDespues];
     return `
-    <div class="list-card prio-${pr} ${otCatClass(o.especialidad)} ${est === 'Cerrada' ? 'is-closed' : ''}">
+    <div class="list-card prio-${pr} ${otCatClass(o.especialidad)} ${est === 'Cerrada' ? 'is-closed' : ''}" data-ot-id="${esc(o.id)}">
       <div class="lc-top">
         <div class="lc-ico ${o.tipo==='PM'?'pm':'ot'}">${o.tipo==='PM'?'🔍':'🛠️'}</div>
         <div class="lc-info">
           <div class="lc-title">${esc(o.title || 'OT sin título')}</div>
-          <div class="lc-meta">${esc(o.fecha||'Sin fecha')} · ${esc(o.zona||'Sin zona')} · ${esc(o.especialidad||'General')}</div>
+          <div class="lc-meta">${esc(o.fecha||'Sin fecha')} · ${esc(formatOTHour(o))} · ${esc(o.zona||'Sin zona')} · ${esc(o.especialidad||'General')}</div>
           <div class="lc-pills">
             <span class="badge p-${pr}">${pr}</span>
             <span class="badge ${otEstClass(est)}">${otEstLabel(est)}</span>
@@ -3813,6 +3997,12 @@ async function applyOTStateWithUndo(id, nextState, okMessage) {
   if (!ot) return;
   const prevState = ot.estado || 'Borrador';
   if (prevState === nextState) return;
+  if (nextState === 'Cerrada') {
+    await animateOTCompletion(id);
+    triggerLightHaptic('success');
+  } else {
+    triggerLightHaptic('light');
+  }
   await DB.patch('ots', id, { estado: nextState });
   refreshOTViews();
   toast(okMessage, {
@@ -4241,6 +4431,54 @@ function renderHome() {
         </div>`;
       }).join('') + (todayTasks.length > 3 ? `<div class="agenda-highlight"><span>+ ${todayTasks.length - 3} tareas más en agenda.</span></div>` : '') + `<div style="margin-top:8px"><button class="btn-ghost acc sm" onclick="showDayTasks('${todayKey}', DB.getAll('ots').filter(o => (o.fecha || o.planfecha || '').startsWith('${todayKey}')))">📅 Ver detalle del día</button></div>`;
     }
+  }
+
+  const timeline = document.getElementById('home-mini-timeline');
+  if (timeline) {
+    const todayKey = fmtDate(new Date());
+    const tasks = ots
+      .filter(o => (o.fecha || o.planfecha || '').startsWith(todayKey) && (o.estado || '') !== 'Cerrada')
+      .sort((a, b) => `${getOTHour(a) || '99:99'}${a.title || ''}`.localeCompare(`${getOTHour(b) || '99:99'}${b.title || ''}`));
+    const split = { man: [], tar: [] };
+    tasks.forEach(o => {
+      const hour = getOTHour(o);
+      const h = hour ? Number(hour.split(':')[0]) : 99;
+      if (h < 14) split.man.push(o);
+      else split.tar.push(o);
+    });
+    const col = (title, items) => `<div class="timeline-col"><h4>${title}</h4>${items.length ? items.slice(0,4).map(o => `<div class="timeline-item"><b>${esc(formatOTHour(o))} · ${esc(o.title || 'OT')}</b><span>${esc(o.zona || 'Sin zona')} · ${esc(o.estado || 'Planificada')}</span></div>`).join('') : `<div class="timeline-item"><b>Sin tareas</b><span>Sin OTs próximas en este bloque.</span></div>`}</div>`;
+    timeline.innerHTML = col('🌅 Mañana', split.man) + col('🌇 Tarde', split.tar);
+  }
+
+  const weekSummary = document.getElementById('week20-summary');
+  const wClosed = document.getElementById('week20-closed');
+  const wDelayed = document.getElementById('week20-delayed');
+  const wSpec = document.getElementById('week20-active-spec');
+  if (weekSummary && wClosed && wDelayed && wSpec) {
+    const now = new Date();
+    const day = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - day);
+    weekStart.setHours(0,0,0,0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    const closedWeek = ots.filter(o => (o.estado || '') === 'Cerrada' && o.updatedAt).filter(o => {
+      const dt = new Date(o.updatedAt);
+      return dt >= weekStart && dt < weekEnd;
+    });
+    const delayed = ots.filter(o => (o.estado || '') === 'En demora').length;
+    const espCount = ots.reduce((acc, o) => {
+      const esp = o.especialidad || 'General';
+      acc[esp] = (acc[esp] || 0) + 1;
+      return acc;
+    }, {});
+    const top = Object.entries(espCount).sort((a,b)=>b[1]-a[1]).slice(0,2);
+    wClosed.textContent = String(closedWeek.length);
+    wDelayed.textContent = String(delayed);
+    wSpec.textContent = top[0]?.[0] || 'General';
+    weekSummary.textContent = top.length
+      ? `Cerraste ${closedWeek.length} OT esta semana, con ${delayed} en demora. Especialidades más activas: ${top.map(x => x[0]).join(' · ')}.`
+      : 'Todavía no hay actividad semanal suficiente; registra OTs para activar el resumen automático.';
   }
 }
 
