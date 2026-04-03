@@ -311,6 +311,32 @@
     opacity: 0; animation: fade-up .5s ease-out 2.3s forwards;
   }
 
+  /* ── VIDEO UPLOAD ─────────────────────────────────── */
+  .video-tools {
+    position: fixed;
+    left: 20px;
+    top: 20px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    animation: fade-up .5s ease-out 2.2s forwards;
+  }
+  .tool-btn {
+    border: 1px solid rgba(47,126,245,.45);
+    background: rgba(3,9,18,.78);
+    color: #cde2ff;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .5px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+  }
+  .tool-btn:hover { background: rgba(47,126,245,.16); }
+  #video-file-input { display: none; }
+
   /* ── RESPONSIVE ───────────────────────────────────── */
   @media (max-width: 420px) {
     .logo-mark { width: 60px; height: 60px; font-size: 28px; }
@@ -325,6 +351,13 @@
   <video id="bg-video" autoplay muted loop playsinline>
     <source src="intro.mp4" type="video/mp4">
   </video>
+
+  <!-- Herramientas de vídeo -->
+  <div class="video-tools">
+    <button class="tool-btn" id="upload-video-btn" type="button">Subir vídeo intro</button>
+    <button class="tool-btn" id="reset-video-btn" type="button">Restaurar</button>
+    <input id="video-file-input" type="file" accept="video/mp4,video/webm,video/ogg">
+  </div>
 
   <!-- Efectos de capa -->
   <div class="grain"></div>
@@ -391,6 +424,57 @@
   <div class="version">IVP v1.0 · HUCSC · 2026</div>
 
 <script>
+  const STORAGE_KEY = 'ivp-intro-video-dataurl';
+  const bgVideo = document.getElementById('bg-video');
+  const uploadBtn = document.getElementById('upload-video-btn');
+  const resetBtn = document.getElementById('reset-video-btn');
+  const fileInput = document.getElementById('video-file-input');
+
+  function setVideoSource(videoSrc) {
+    if (!bgVideo) return;
+    bgVideo.src = videoSrc;
+    bgVideo.load();
+    bgVideo.play().catch(() => {});
+  }
+
+  function loadSavedVideo() {
+    try {
+      const savedVideo = localStorage.getItem(STORAGE_KEY);
+      if (savedVideo) setVideoSource(savedVideo);
+    } catch (_) {}
+  }
+
+  function handleVideoUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      alert('Selecciona un archivo de vídeo válido.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') return;
+      try {
+        localStorage.setItem(STORAGE_KEY, result);
+        setVideoSource(result);
+      } catch (_) {
+        alert('El vídeo es demasiado grande para guardarlo en el navegador. Usa uno más corto o comprimido.');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetVideoToDefault() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+    setVideoSource('intro.mp4');
+  }
+
+  uploadBtn?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', handleVideoUpload);
+  resetBtn?.addEventListener('click', resetVideoToDefault);
+  loadSavedVideo();
+
   // Contador de progreso
   let pct = 0;
   const pctEl = document.getElementById('pct');
