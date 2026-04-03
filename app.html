@@ -1215,6 +1215,87 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .mini-item { cursor: pointer; transition: border-color .15s, background .15s; }
 .mini-item:hover { border-color: var(--acc); background: var(--acc-s); }
 
+/* ── AGENDA SPOTLIGHT + MODAL ───────────────────────────── */
+.agenda-spotlight {
+  background: linear-gradient(145deg, color-mix(in oklab, var(--s2) 78%, var(--acc) 22%), var(--s1));
+  border-color: color-mix(in oklab, var(--border2) 70%, var(--acc) 30%);
+}
+.agenda-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  margin-bottom: 12px;
+}
+.agenda-title { font-size: 16px; font-weight: 800; letter-spacing: -.2px; }
+.agenda-sub { font-size: 11px; color: var(--t2); font-family: var(--mono); margin-top: 2px; }
+.agenda-pill {
+  border: 1px solid color-mix(in oklab, var(--acc) 65%, transparent);
+  color: var(--acc); background: var(--acc-s);
+  border-radius: 999px; font-size: 10px; font-weight: 800;
+  padding: 5px 10px; white-space: nowrap;
+}
+.agenda-highlight {
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  background: linear-gradient(160deg, var(--s1), var(--s2));
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.agenda-highlight b { display: block; font-size: 13px; margin-bottom: 4px; }
+.agenda-highlight span { font-size: 11px; color: var(--t2); font-family: var(--mono); line-height: 1.45; }
+.agenda-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.agenda-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .2px;
+  border-radius: 999px; padding: 5px 9px;
+  border: 1px solid var(--border2); color: var(--t2); background: var(--s2);
+}
+.agenda-tag.pr-URGENTE { color: var(--pu); border-color: var(--pu); background: var(--pu-s); }
+.agenda-tag.pr-ALTA { color: var(--pa); border-color: var(--pa); background: var(--pa-s); }
+.agenda-tag.pr-MEDIA { color: var(--pm); border-color: var(--pm); background: var(--pm-s); }
+.agenda-tag.pr-BAJA { color: var(--pb); border-color: var(--pb); background: var(--pb-s); }
+
+.agenda-modal {
+  position: fixed; inset: 0; z-index: 820;
+  display: none; align-items: flex-end; justify-content: center;
+  padding: 16px;
+  background: rgba(2,8,20,.62);
+  backdrop-filter: blur(5px);
+}
+.agenda-modal.show { display: flex; animation: fade-in .2s ease-out; }
+.agenda-modal-card {
+  width: min(620px, 100%);
+  max-height: min(78dvh, 680px);
+  overflow: auto;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: linear-gradient(160deg, var(--s1), var(--s2));
+  box-shadow: 0 26px 56px rgba(0,0,0,.35);
+  animation: pop-up .24s cubic-bezier(.2,.85,.2,1);
+}
+.agenda-modal-head {
+  position: sticky; top: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(170deg, color-mix(in oklab, var(--s2) 78%, var(--acc) 22%), var(--s1));
+  border-radius: 20px 20px 0 0;
+}
+.agenda-modal-title { font-size: 14px; font-weight: 800; }
+.agenda-modal-sub { font-size: 10px; color: var(--t2); font-family: var(--mono); margin-top: 2px; }
+.agenda-close {
+  border: 1px solid var(--border2); background: var(--s1); color: var(--t1);
+  width: 30px; height: 30px; border-radius: 9px; font-size: 16px; line-height: 1;
+}
+.agenda-modal-body { padding: 12px 12px 14px; display: grid; gap: 9px; }
+.agenda-task {
+  border: 1px solid var(--border2); background: linear-gradient(160deg, var(--s1), var(--s2));
+  border-radius: 14px; padding: 10px 11px;
+}
+.agenda-task-top { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+.agenda-prio-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.agenda-task-title { font-size: 13px; font-weight: 800; letter-spacing: -.2px; }
+.agenda-task-meta { font-size: 11px; color: var(--t2); font-family: var(--mono); line-height: 1.4; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-up { from { transform: translateY(12px) scale(.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
 /* ── LIST CARD PRESS ─────────────────────────────────────── */
 .list-card:active { transform: scale(.99); }
 
@@ -1319,6 +1400,22 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         <button class="btn-ghost"     onclick="goPage('ot')">🛠️ Ver OT</button>
         <button class="btn-ghost"     onclick="goPage('instalaciones')">🏷️ Instalaciones</button>
         <button class="btn-ghost"     onclick="goPage('stats')">📊 Estadísticas</button>
+      </div>
+    </div>
+
+    <div class="card agenda-spotlight reveal" id="home-agenda-spotlight">
+      <div class="agenda-head">
+        <div>
+          <div class="agenda-title">Agenda de hoy</div>
+          <div class="agenda-sub" id="agenda-spot-date">Preparando resumen…</div>
+        </div>
+        <div class="agenda-pill" id="agenda-spot-count">0 tareas</div>
+      </div>
+      <div id="agenda-spot-list">
+        <div class="agenda-highlight">
+          <b>Sin tareas para hoy</b>
+          <span>Cuando planifiques OTs con fecha, aparecerán destacadas aquí con su estado y prioridad.</span>
+        </div>
       </div>
     </div>
 
@@ -2119,6 +2216,18 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 </nav>
 
 <div class="toast" id="toast"></div>
+<div class="agenda-modal" id="agenda-modal" aria-hidden="true">
+  <div class="agenda-modal-card" role="dialog" aria-modal="true" aria-labelledby="agenda-modal-title" onclick="event.stopPropagation()">
+    <div class="agenda-modal-head">
+      <div>
+        <div class="agenda-modal-title" id="agenda-modal-title">Agenda del día</div>
+        <div class="agenda-modal-sub" id="agenda-modal-sub">Tareas planificadas</div>
+      </div>
+      <button class="agenda-close" type="button" aria-label="Cerrar agenda" onclick="closeAgendaModal()">✕</button>
+    </div>
+    <div class="agenda-modal-body" id="agenda-modal-body"></div>
+  </div>
+</div>
 
 <!-- LIBRERÍAS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -2367,6 +2476,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadChecklistBySpecialty();
   document.getElementById('f-esp')?.addEventListener('change', loadChecklistBySpecialty);
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
+  document.getElementById('agenda-modal')?.addEventListener('click', closeAgendaModal);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closeAgendaModal();
+  });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();
 });
@@ -3285,7 +3398,36 @@ function changeMonth(dir) {
 function showDayTasks(dateKey, tasks) {
   const [y, m, d] = dateKey.split('-');
   const label = `${d}/${m}/${y}`;
-  alert(`Tareas del ${label}:\n\n${tasks.map(t => `• [${t.estado||'—'}] ${t.title||'OT'} — ${t.zona||''}${t.instalacionNombre ? ' · ' + t.instalacionNombre : ''} · ${t.prioridad || 'MEDIA'}`).join('\n')}`);
+  const modal = document.getElementById('agenda-modal');
+  const title = document.getElementById('agenda-modal-title');
+  const sub = document.getElementById('agenda-modal-sub');
+  const body = document.getElementById('agenda-modal-body');
+  if (!modal || !title || !sub || !body) return;
+
+  title.textContent = `Agenda · ${label}`;
+  sub.textContent = `${tasks.length} ${tasks.length === 1 ? 'tarea planificada' : 'tareas planificadas'}`;
+  body.innerHTML = tasks.length ? tasks.map(t => {
+    const pr = (t.prioridad || 'MEDIA').toUpperCase();
+    const color = pr === 'URGENTE' ? 'var(--pu)' : pr === 'ALTA' ? 'var(--pa)' : pr === 'BAJA' ? 'var(--pb)' : 'var(--pm)';
+    return `<article class="agenda-task">
+      <div class="agenda-task-top">
+        <span class="agenda-prio-dot" style="background:${color}"></span>
+        <div class="agenda-task-title">${esc(t.title || 'OT sin título')}</div>
+      </div>
+      <div class="agenda-task-meta">${esc(t.estado || 'Planificada')} · ${esc(pr)} · ${esc(t.tipo || 'OT')}</div>
+      <div class="agenda-task-meta">${esc(t.zona || 'Sin zona')}${t.instalacionNombre ? ` · ${esc(t.instalacionNombre)}` : ''}</div>
+    </article>`;
+  }).join('') : `<div class="agenda-task"><div class="agenda-task-title">Sin tareas en esta fecha</div></div>`;
+
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAgendaModal() {
+  const modal = document.getElementById('agenda-modal');
+  if (!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
 }
 
 
@@ -4069,6 +4211,36 @@ function renderHome() {
         <span>${esc(i._date || 'Sin fecha')} · ${esc(i.insta || i.instalacionNombre || i.zona || 'Sin ubicación')} · ${esc(i.esp || i.especialidad || 'General')}</span>
       </div>
     `).join('') : `<div class="mini-item"><b>Sin actividad reciente</b><span>Aquí aparecerán las últimas intervenciones y cambios.</span></div>`;
+  }
+
+  const dateEl = document.getElementById('agenda-spot-date');
+  const countEl = document.getElementById('agenda-spot-count');
+  const listEl = document.getElementById('agenda-spot-list');
+  if (dateEl) {
+    const now = new Date();
+    const WEEK = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    dateEl.textContent = `${WEEK[now.getDay()]}, ${String(now.getDate()).padStart(2,'0')} ${MONTHS[now.getMonth()]}`;
+  }
+  if (listEl && countEl) {
+    const todayKey = fmtDate(new Date());
+    const todayTasks = ots.filter(o => (o.fecha || o.planfecha || '').startsWith(todayKey));
+    countEl.textContent = `${todayTasks.length} ${todayTasks.length === 1 ? 'tarea' : 'tareas'}`;
+    if (!todayTasks.length) {
+      listEl.innerHTML = `<div class="agenda-highlight"><b>Sin tareas para hoy</b><span>Puedes revisar la agenda semanal para adelantar pendientes o planificar preventivos.</span></div>`;
+    } else {
+      listEl.innerHTML = todayTasks.slice(0, 3).map(task => {
+        const pr = (task.prioridad || 'MEDIA').toUpperCase();
+        return `<div class="agenda-highlight">
+          <b>${esc(task.title || 'OT sin título')}</b>
+          <span>${esc(task.zona || 'Sin zona')} · ${esc(task.estado || 'Planificada')} · ${esc(pr)}</span>
+          <div class="agenda-tags">
+            <span class="agenda-tag">${esc(task.tipo || 'OT')}</span>
+            <span class="agenda-tag pr-${esc(pr)}">${esc(pr)}</span>
+          </div>
+        </div>`;
+      }).join('') + (todayTasks.length > 3 ? `<div class="agenda-highlight"><span>+ ${todayTasks.length - 3} tareas más en agenda.</span></div>` : '') + `<div style="margin-top:8px"><button class="btn-ghost acc sm" onclick="showDayTasks('${todayKey}', DB.getAll('ots').filter(o => (o.fecha || o.planfecha || '').startsWith('${todayKey}')))">📅 Ver detalle del día</button></div>`;
+    }
   }
 }
 
