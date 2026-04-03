@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#2f7ef5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>IsiVoltPro · HUCSC</title>
+  <title>IsiVoltPro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
 /* ═══════════════════════════════════════════════════════════
    ISIVOLT PRO — Design System
-   Hospital Universitario Clínico San Cecilio · Mantenimiento
+   IsiVoltPro · Servicio de Mantenimiento
    ═══════════════════════════════════════════════════════════ */
 
 /* ── TOKENS ─────────────────────────────────────────────── */
@@ -455,6 +455,27 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   border-radius: var(--r2);
   margin-bottom: 10px; overflow: hidden;
   transition: border-color .18s, box-shadow .18s;
+  position: relative;
+}
+.list-card.is-closed::after{
+  content:'CERRADA';
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: clamp(36px, 10vw, 72px);
+  font-weight: 900;
+  letter-spacing: .18em;
+  color: rgba(0, 208, 132, .16);
+  text-shadow: 0 0 22px rgba(0, 208, 132, .14);
+  pointer-events:none;
+  z-index: 2;
+}
+.list-card.is-closed .lc-top,
+.list-card.is-closed .lc-actions{
+  position: relative;
+  z-index: 3;
 }
 /* Borde izquierdo de prioridad */
 .list-card.prio-URGENTE { border-left: 3px solid var(--pu); }
@@ -1071,7 +1092,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     <div class="hdr-icon">⚡</div>
     <div>
       <div class="hdr-name">IsiVoltPro</div>
-      <div class="hdr-sub">HUCSC · Mantenimiento</div>
+      <div class="hdr-sub">Servicio de Mantenimiento</div>
     </div>
   </div>
   <div class="hdr-actions">
@@ -1841,7 +1862,6 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     <div class="card reveal" style="text-align:center">
       <div style="font-size:11px;color:var(--t3);font-family:var(--mono);line-height:1.8">
         IsiVoltPro v1.0<br>
-        Hospital Universitario Clínico San Cecilio<br>
         Servicio de Mantenimiento · 2026<br>
         <span style="font-size:10px;opacity:.6">Todos los datos se gestionan en tu GitHub y localmente.</span>
       </div>
@@ -2623,7 +2643,7 @@ async function buildPDF(d, fotoB64 = []) {
   doc.setFillColor(240, 244, 252);
   doc.rect(0, y, W, H - y, 'F');
   doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(100,120,150);
-  doc.text(`Generado: ${new Date().toLocaleString('es-ES')}   ·   IsiVoltPro v1.0   ·   HUCSC Servicio de Mantenimiento`, mg, y + 7);
+  doc.text(`Generado: ${new Date().toLocaleString('es-ES')}   ·   IsiVoltPro v1.0   ·   Servicio de Mantenimiento`, mg, y + 7);
   doc.text('Firma técnico: _______________________         Firma responsable: _______________________', mg, y + 14);
 
   return doc.output('blob');
@@ -2977,7 +2997,7 @@ function renderOTList() {
     const est = o.estado || 'Borrador';
     const inst = o.instalacionNombre || o.instalacion || 'Sin instalación';
     return `
-    <div class="list-card prio-${pr} ${otCatClass(o.especialidad)}">
+    <div class="list-card prio-${pr} ${otCatClass(o.especialidad)} ${est === 'Cerrada' ? 'is-closed' : ''}">
       <div class="lc-top">
         <div class="lc-ico ${o.tipo==='PM'?'pm':'ot'}">${o.tipo==='PM'?'🔍':'🛠️'}</div>
         <div class="lc-info">
@@ -3595,7 +3615,7 @@ function loadGHConfigToForm() {
 ══════════════════════════════════════════════════════════ */
 function shareLatest() {
   if (!App.lastPdfUrl) { toast('Genera un PDF primero.'); return; }
-  if (navigator.share) navigator.share({ title: App.lastPdfName, text: 'Informe de mantenimiento HUCSC.' }).catch(()=>{});
+  if (navigator.share) navigator.share({ title: App.lastPdfName, text: 'Informe de mantenimiento IsiVoltPro.' }).catch(()=>{});
   else toast('Tu navegador no soporta compartir directamente.');
 }
 function sendWhatsApp() {

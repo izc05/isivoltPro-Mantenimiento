@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>IsiVoltPro · HUCSC</title>
+  <title>IsiVoltPro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
@@ -33,7 +33,10 @@
     width: 100%; height: 100%;
     object-fit: cover;
     filter: brightness(.38) saturate(.6);
+    opacity: 0;
+    transition: opacity .35s ease;
   }
+  #bg-video.ready { opacity: 1; }
 
   /* ── GRAIN OVERLAY ────────────────────────────────── */
   .grain {
@@ -397,7 +400,7 @@
     <div class="logo-mark">⚡</div>
 
     <div class="title">ISI<span class="accent">VOLT</span><br>PRO</div>
-    <div class="subtitle">Hospital Universitario · San Cecilio</div>
+    <div class="subtitle">Servicio de Mantenimiento</div>
 
     <div class="modules">
       <span class="mod-tag hi">Informes</span>
@@ -409,7 +412,7 @@
     </div>
 
     <div class="divider"></div>
-    <div class="hospital">Servicio de <span>Mantenimiento</span> · HUCSC</div>
+    <div class="hospital">ISI<span>VOLTPRO</span> · Servicio de Mantenimiento</div>
   </div>
 
   <!-- Barra de carga -->
@@ -429,7 +432,7 @@
   </button>
 
   <!-- Versión -->
-  <div class="version">IVP v1.0 · HUCSC · 2026</div>
+  <div class="version">IVP v1.0 · 2026</div>
 
 <script>
   const STORAGE_KEY = 'ivp-intro-video-dataurl';
@@ -443,9 +446,15 @@
 
   function setVideoSource(videoSrc) {
     if (!bgVideo) return;
+    bgVideo.classList.remove('ready');
     bgVideo.src = videoSrc;
     bgVideo.load();
     bgVideo.play().catch(() => {});
+  }
+
+  function markVideoReady() {
+    if (!bgVideo) return;
+    bgVideo.classList.add('ready');
   }
 
   function loadSavedVideo() {
@@ -505,8 +514,11 @@
   fileInput?.addEventListener('change', handleVideoUpload);
   resetBtn?.addEventListener('click', resetVideoToDefault);
   soundBtn?.addEventListener('click', toggleIntroSound);
+  bgVideo?.addEventListener('loadeddata', markVideoReady);
+  bgVideo?.addEventListener('canplay', markVideoReady);
   loadSavedVideo();
   applySavedSoundPreference();
+  if (bgVideo?.readyState >= 2) markVideoReady();
 
   // Contador de progreso
   let pct = 0;
