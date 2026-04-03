@@ -835,14 +835,36 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .err.show { display: block; }
 .toast {
   position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
-  background: rgba(0,0,0,.82); color: #fff;
-  padding: 10px 18px; border: 1px solid var(--border2);
-  border-radius: 999px; font-size: 12px; z-index: 9999;
-  display: none; max-width: 90vw; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(140deg, rgba(8,15,30,.96), rgba(14,25,44,.96));
+  color: #fff;
+  padding: 10px 12px; border: 1px solid var(--border2);
+  border-radius: 14px; font-size: 12px; z-index: 9999;
+  display: none; max-width: min(92vw, 520px);
+  box-shadow: 0 16px 30px rgba(0,0,0,.32);
 }
 .toast.show { display: block; animation: toastIn .18s ease-out; }
 @keyframes toastIn { from { transform: translateX(-50%) translateY(6px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+.toast-body{display:flex; align-items:center; gap:10px;}
+.toast-main{line-height:1.35; color:var(--t1); font-weight:600}
+.toast-actions{margin-left:auto; display:flex; gap:6px; align-items:center}
+.toast-btn{
+  border:1px solid var(--border2);
+  background:var(--s2);
+  color:var(--t1);
+  border-radius:10px;
+  padding:6px 10px;
+  font-size:11px;
+  font-weight:700;
+}
+.toast-btn.undo{
+  background:var(--acc-s);
+  border-color: var(--acc);
+  color: var(--acc);
+}
+.toast-btn.close{
+  width:28px; height:28px; border-radius:9px; padding:0;
+  display:flex; align-items:center; justify-content:center;
+}
 
 /* ── MINI LIST ──────────────────────────────────────────── */
 .mini-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -2952,22 +2974,38 @@ async function setOTState(id, estado) {
     await closeOT(id);
     return;
   }
-  await DB.patch('ots', id, { estado });
+  await applyOTStateWithUndo(id, estado, `OT actualizada: ${estado}`);
+}
+
+function refreshOTViews() {
   renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
-  toast(`OT actualizada a: ${estado}`);
+}
+
+async function applyOTStateWithUndo(id, nextState, okMessage) {
+  const ot = DB.getById('ots', id);
+  if (!ot) return;
+  const prevState = ot.estado || 'Borrador';
+  if (prevState === nextState) return;
+  await DB.patch('ots', id, { estado: nextState });
+  refreshOTViews();
+  toast(okMessage, {
+    actionLabel: '↩ Deshacer',
+    action: async () => {
+      await DB.patch('ots', id, { estado: prevState });
+      refreshOTViews();
+      toast(`Cambio deshecho. Estado: ${prevState}`);
+    }
+  });
 }
 
 async function closeOT(id) {
   const ot = DB.getById('ots', id);
   const titulo = ot?.title || 'OT';
-  if (!confirm(`Vas a cerrar esta OT:\n\n${titulo}\n\n¿Continuar?`)) return;
-  if (!confirm('Confirma de nuevo que quieres marcar esta OT como CERRADA.')) return;
-  await DB.patch('ots', id, { estado: 'Cerrada' });
-  renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge(); toast('OT cerrada.');
+  if (!confirm(`¿Cerrar la OT "${titulo}"?`)) return;
+  await applyOTStateWithUndo(id, 'Cerrada', 'OT cerrada correctamente.');
 }
 async function reopenOT(id) {
-  await DB.patch('ots', id, { estado: 'Planificada' });
-  renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge(); toast('OT reabierta.');
+  await applyOTStateWithUndo(id, 'Planificada', 'OT reabierta correctamente.');
 }
 async function deleteOT(id) {
   if (!confirm('¿Eliminar esta OT?')) return;
@@ -3076,6 +3114,7 @@ function useInstInForm(id) {
 function editInstallation(id) {
   const inst = DB.getById('instalaciones', id);
   if (!inst) return;
+  goPage('instalaciones');
   const s = (eid, v) => { const el = document.getElementById(eid); if (el) el.value = v || ''; };
   s('inst-nombre', inst.nombre);
   s('inst-codigo', inst.codigo);
@@ -3095,7 +3134,7 @@ function editInstallation(id) {
   setTimeout(() => {
     document.getElementById('inst-editor-wrap')?.scrollIntoView({behavior:'smooth', block:'start'});
   }, 60);
-  toast('Activo cargado para editar.');
+  toast(`Instalación “${inst.nombre || 'Sin nombre'}” cargada para editar.`);
 }
 async function deleteInstallation(id) {
   const inst = DB.getById('instalaciones', id);
@@ -3459,8 +3498,20 @@ function sendEmail() {
 function toast(msg) {
   const t = document.getElementById('toast');
   if (!t) return;
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+  const opts = arguments[1] || {};
+  const main = `<div class="toast-main">${esc(msg)}</div>`;
+  const actionBtn = opts.actionLabel ? `<button class="toast-btn undo" type="button" data-toast-action>${esc(opts.actionLabel)}</button>` : '';
+  const closeBtn = `<button class="toast-btn close" type="button" data-toast-close aria-label="Cerrar mensaje">✕</button>`;
+  t.innerHTML = `<div class="toast-body">${main}<div class="toast-actions">${actionBtn}${closeBtn}</div></div>`;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), opts.duration || 3200);
+  const hide = () => t.classList.remove('show');
+  t.querySelector('[data-toast-close]')?.addEventListener('click', hide, { once: true });
+  t.querySelector('[data-toast-action]')?.addEventListener('click', async () => {
+    hide();
+    if (typeof opts.action === 'function') await opts.action();
+  }, { once: true });
 }
 function esc(v = '') {
   return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
