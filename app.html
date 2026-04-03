@@ -958,6 +958,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .foto-item { position: relative; border-radius: 10px; overflow: hidden; aspect-ratio: 1; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
 .foto-item img { width: 100%; height: 100%; object-fit: cover; }
 .foto-rm { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.75); color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.otf-photo-card{ background: var(--s2); border:1px solid var(--border); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; }
+.otf-photo-card img{ width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; }
+.otf-photo-card textarea{ min-height:44px; resize:vertical; font-size:11px; padding:7px 9px; border-radius:8px; }
+.ot-thumb-row{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.ot-thumb{ width:48px; height:48px; border-radius:10px; overflow:hidden; border:1px solid var(--border2); background:var(--s3); }
+.ot-thumb img{width:100%;height:100%;object-fit:cover;}
+.ot-thumb-more{ width:48px; height:48px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--s3); border:1px dashed var(--border2); color:var(--t2); font-size:11px; font-weight:700; }
 
 /* ── PROGRESS ───────────────────────────────────────────── */
 .prog { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r2); overflow: hidden; margin-top: 14px; display: none; }
@@ -1021,6 +1028,8 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   width:28px; height:28px; border-radius:9px; padding:0;
   display:flex; align-items:center; justify-content:center;
 }
+.toast.compact{ min-width:220px; max-width:min(360px,calc(100vw - 28px)); }
+.toast.compact .toast-actions{ display:none; }
 
 /* ── MINI LIST ──────────────────────────────────────────── */
 .mini-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -2524,7 +2533,7 @@ function addOTFotos(e, kind = 'before') {
   if (rem <= 0) { toast('Máximo 4 fotos por bloque.'); return; }
   Promise.all(files.slice(0, rem).map(f => compressImage(f, 1280, .72)))
     .then(results => {
-      results.forEach((b64, i) => App[key].push({ b64, name: files[i].name || `foto-${Date.now()}` }));
+      results.forEach((b64, i) => App[key].push({ b64, name: files[i].name || `foto-${Date.now()}`, note: '' }));
       renderOTFotos();
       toast(`${results.length} foto(s) añadida(s).`);
     }).catch(() => toast('Error procesando fotos de OT.'));
@@ -2534,6 +2543,17 @@ function removeOTFoto(kind = 'before', i = 0) {
   const key = kind === 'after' ? 'otFotosAfter' : 'otFotosBefore';
   App[key].splice(i, 1);
   renderOTFotos();
+}
+function updateOTFotoNote(kind = 'before', i = 0, note = '') {
+  const key = kind === 'after' ? 'otFotosAfter' : 'otFotosBefore';
+  if (!App[key]?.[i]) return;
+  App[key][i].note = note || '';
+}
+function normalizeOTPhotos(list = [], prefix = 'foto') {
+  return (list || []).map((item, i) => {
+    if (typeof item === 'string') return { b64: item, name: `${prefix}-${i+1}`, note: '' };
+    return { b64: item?.b64 || '', name: item?.name || `${prefix}-${i+1}`, note: item?.note || '' };
+  }).filter(p => !!p.b64);
 }
 function renderOTFotos() {
   const cfg = [
@@ -2546,9 +2566,10 @@ function renderOTFotos() {
     if (!g || !d) return;
     d.classList.toggle('has', App[key].length > 0);
     g.innerHTML = App[key].map((f, i) => `
-      <div class="foto-item">
+      <div class="otf-photo-card">
         <img src="${f.b64}" alt="foto ${kind}-${i+1}">
         <button class="foto-rm" onclick="removeOTFoto('${kind}',${i})">✕</button>
+        <textarea placeholder="Anotación (opcional)" oninput="updateOTFotoNote('${kind}',${i},this.value)">${esc(f.note || '')}</textarea>
       </div>
     `).join('');
   });
@@ -3269,14 +3290,14 @@ async function saveStandaloneOT() {
     tipo: g('otf-tipo') || (g('otf-frecuencia') ? 'PM' : 'OT'),
     instalacionId: g('otf-instalacion'),
     instalacionNombre: sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '',
-    fotosAntes: App.otFotosBefore.map(f => f.b64),
-    fotosDespues: App.otFotosAfter.map(f => f.b64),
+    fotosAntes: App.otFotosBefore.map(f => ({ b64: f.b64, note: f.note || '' })),
+    fotosDespues: App.otFotosAfter.map(f => ({ b64: f.b64, note: f.note || '' })),
   };
   if (!ot.fecha) { toast('Indica una fecha planificada.'); return; }
   await DB.save('ots', ot);
   renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
   toggleOTEditor(false);
-  toast(g('ot-edit-id') ? 'OT actualizada.' : 'OT guardada.');
+  toast(g('ot-edit-id') ? 'OT actualizada.' : 'OT guardada.', { compact: true, closable: false, duration: 1600 });
 }
 function editOTStandalone(id) {
   const o = DB.getById('ots', id);
@@ -3292,8 +3313,8 @@ function editOTStandalone(id) {
   s('otf-frecuencia', o.frecuencia);
   s('otf-nota', o.nota);
   s('otf-tipo', o.tipo || 'OT');
-  App.otFotosBefore = (o.fotosAntes || []).map((b64, i) => ({ b64, name: `antes-${i+1}` }));
-  App.otFotosAfter = (o.fotosDespues || []).map((b64, i) => ({ b64, name: `despues-${i+1}` }));
+  App.otFotosBefore = normalizeOTPhotos(o.fotosAntes || [], 'antes');
+  App.otFotosAfter = normalizeOTPhotos(o.fotosDespues || [], 'despues');
   renderOTFotos();
   fillOTInstallationSelect(o.instalacionId || '');
   toggleOTEditor(true);
@@ -3346,6 +3367,9 @@ function renderOTList() {
     const pr  = (o.prioridad || 'MEDIA').toUpperCase();
     const est = o.estado || 'Borrador';
     const inst = o.instalacionNombre || o.instalacion || 'Sin instalación';
+    const fotosAntes = normalizeOTPhotos(o.fotosAntes || [], 'antes');
+    const fotosDespues = normalizeOTPhotos(o.fotosDespues || [], 'despues');
+    const fotosThumb = [...fotosAntes, ...fotosDespues];
     return `
     <div class="list-card prio-${pr} ${otCatClass(o.especialidad)} ${est === 'Cerrada' ? 'is-closed' : ''}">
       <div class="lc-top">
@@ -3359,9 +3383,13 @@ function renderOTList() {
             ${o.frecuencia ? `<span class="badge" style="background:var(--acc-s);color:var(--acc);border:1px solid var(--acc)">🔄 ${esc(o.frecuencia)}</span>` : ''}
           </div>
           <div class="ot-media-summary">
-            <span class="ot-media-chip">📸 Antes: ${(o.fotosAntes || []).length}</span>
-            <span class="ot-media-chip">✅ Después: ${(o.fotosDespues || []).length}</span>
+            <span class="ot-media-chip">📸 Antes: ${fotosAntes.length}</span>
+            <span class="ot-media-chip">✅ Después: ${fotosDespues.length}</span>
           </div>
+          ${fotosThumb.length ? `<div class="ot-thumb-row">
+            ${fotosThumb.slice(0,4).map(f => `<div class="ot-thumb"><img src="${f.b64}" alt="Miniatura OT"></div>`).join('')}
+            ${fotosThumb.length > 4 ? `<div class="ot-thumb-more">+${fotosThumb.length - 4}</div>` : ''}
+          </div>` : ''}
           <div class="lc-detail">
             <div class="lc-detail-row">🏷️ <strong>Instalación:</strong> <span>${esc(inst)}</span></div>
             ${o.tipo ? `<div class="lc-detail-row">📂 <strong>Tipo:</strong> <span>${esc(o.tipo)}</span></div>` : ''}
@@ -3377,8 +3405,9 @@ function renderOTList() {
         </div>
       </div>
       <div class="lc-actions">
-        <button class="lc-btn edit"  onclick="loadOT('${o.id}')">↩ Cargar</button>
+        <button class="lc-btn edit"  onclick="loadOT('${o.id}')">📝 Cargar informe</button>
         <button class="lc-btn edit"  onclick="editOTStandalone('${o.id}')">✏ Editar</button>
+        <button class="lc-btn dl"    onclick="generateOTPDF('${o.id}')">📄 PDF</button>
         ${est !== 'Cerrada' ? `<button class="lc-btn dl" onclick="closeOT('${o.id}')">✅ Cerrar</button>` : `<button class="lc-btn edit" onclick="reopenOT('${o.id}')">🔓 Reabrir</button>`}
         <button class="lc-btn del"   onclick="deleteOT('${o.id}')">🗑</button>
       </div>
@@ -3460,6 +3489,65 @@ function loadOT(id) {
 function editOT(id) {
   loadOT(id);
   toast('OT abierta para editar.');
+}
+async function generateOTPDF(id) {
+  const ot = DB.getById('ots', id);
+  if (!ot) return;
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
+    const mg = 14;
+    let y = 16;
+    const fotosAntes = normalizeOTPhotos(ot.fotosAntes || [], 'antes');
+    const fotosDespues = normalizeOTPhotos(ot.fotosDespues || [], 'despues');
+    const fotos = [...fotosAntes.map(f => ({ ...f, bloque: 'ANTES' })), ...fotosDespues.map(f => ({ ...f, bloque: 'DESPUÉS' }))];
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.text('Informe de Orden de Trabajo', mg, y); y += 7;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    const info = [
+      `OT: ${ot.otNumero || ot.id || '—'}`,
+      `Título: ${ot.title || 'OT sin título'}`,
+      `Fecha: ${ot.fecha || '—'}`,
+      `Estado: ${ot.estado || 'Planificada'}`,
+      `Prioridad: ${ot.prioridad || 'MEDIA'}`,
+      `Instalación: ${ot.instalacionNombre || 'Sin instalación'}`,
+      `Zona: ${ot.zona || '—'}`,
+      `Especialidad: ${ot.especialidad || 'General'}`
+    ];
+    info.forEach(line => { doc.text(line, mg, y); y += 5; });
+    if (ot.nota) {
+      y += 1;
+      doc.setFont('helvetica','bold'); doc.text('Observaciones:', mg, y); y += 4;
+      doc.setFont('helvetica','normal');
+      const noteLines = doc.splitTextToSize(String(ot.nota), 180);
+      doc.text(noteLines, mg, y);
+      y += noteLines.length * 4 + 2;
+    }
+    if (!fotos.length) {
+      doc.text('Sin registro fotográfico en esta OT.', mg, y);
+    } else {
+      doc.setFont('helvetica','bold'); doc.text('Registro fotográfico', mg, y); y += 6;
+      const w = 56, h = 44;
+      let col = 0;
+      fotos.forEach((f, i) => {
+        if (y + h + 16 > 287) { doc.addPage(); y = 16; col = 0; }
+        const x = mg + col * (w + 6);
+        try { doc.addImage(f.b64, 'JPEG', x, y, w, h, `ot_${i}`, 'MEDIUM'); } catch {}
+        doc.setFontSize(8);
+        doc.text(`${f.bloque} · Foto ${i+1}`, x, y + h + 4);
+        if (f.note) {
+          const lines = doc.splitTextToSize(`Nota: ${f.note}`, w);
+          doc.text(lines.slice(0, 3), x, y + h + 8);
+        }
+        col++;
+        if (col >= 3) { col = 0; y += h + 16; }
+      });
+    }
+    const filename = `OT_${(ot.otNumero || ot.id || 'sin-numero').toString().replace(/[^\w-]/g,'_')}.pdf`;
+    doc.save(filename);
+    toast('PDF de OT generado.');
+  } catch (err) {
+    toast('No se pudo generar el PDF de la OT.');
+  }
 }
 async function setOTState(id, estado) {
   if (estado === 'Cerrada') {
@@ -3993,8 +4081,9 @@ function toast(msg) {
   const opts = arguments[1] || {};
   const main = `<div class="toast-main">${esc(msg)}</div>`;
   const actionBtn = opts.actionLabel ? `<button class="toast-btn undo" type="button" data-toast-action>${esc(opts.actionLabel)}</button>` : '';
-  const closeBtn = `<button class="toast-btn close" type="button" data-toast-close aria-label="Cerrar mensaje">✕</button>`;
+  const closeBtn = opts.closable === false ? '' : `<button class="toast-btn close" type="button" data-toast-close aria-label="Cerrar mensaje">✕</button>`;
   t.innerHTML = `<div class="toast-body">${main}<div class="toast-actions">${actionBtn}${closeBtn}</div></div>`;
+  t.classList.toggle('compact', !!opts.compact);
   t.classList.add('show');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove('show'), opts.duration || 3200);
