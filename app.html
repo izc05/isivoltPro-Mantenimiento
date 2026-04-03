@@ -2757,6 +2757,10 @@ function checklistSummary() {
 ══════════════════════════════════════════════════════════ */
 function collectForm() {
   const g = id => document.getElementById(id)?.value || '';
+  const instSel = document.getElementById('f-instalacion');
+  const instalacionNombre = instSel && instSel.selectedIndex > 0
+    ? instSel.options[instSel.selectedIndex].textContent.trim()
+    : '';
   const tipo = document.querySelector('.tipo-card.active')?.dataset?.tipo || 'averia';
   return {
     tipo,
@@ -2770,6 +2774,7 @@ function collectForm() {
     mat:      g('f-mat')   || 'Sin especificar',
     estado:   g('f-estado'),
     instalacionId: g('f-instalacion'),
+    instalacionNombre,
     otestado: g('f-otestado'),
     planfecha:g('f-planfecha'),
     freq:     g('f-freq'),
@@ -2914,11 +2919,14 @@ async function buildPDF(d, fotoB64 = []) {
   doc.rect(0, 0, W, 28, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-  doc.text('HOSPITAL UNIVERSITARIO CLÍNICO SAN CECILIO', mg, 11);
+  doc.text('ISIVOLTPRO', mg, 11);
   doc.setFontSize(10);
-  doc.text('Servicio de Mantenimiento · Parte de Intervención Técnica', mg, 18);
+  const installLabel = d.instalacionNombre || d.zona || 'Instalación no especificada';
+  doc.text(`Instalación: ${installLabel}`, mg, 17.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Servicio de Mantenimiento · Parte de Intervención Técnica', mg, 23);
   doc.setFontSize(8.5);
-  doc.text(`OT: ${d.ot}   ·   Fecha: ${d.fecha || '—'}   ·   ${d.tipo === 'preventivo' ? 'PREVENTIVO' : 'CORRECTIVO'}`, mg, 24.5);
+  doc.text(`OT: ${d.ot}   ·   Fecha: ${d.fecha || '—'}   ·   ${d.tipo === 'preventivo' ? 'PREVENTIVO' : 'CORRECTIVO'}`, mg, 27);
 
   // ── Banda prioridad ──
   doc.setFillColor(...pc);
@@ -2958,6 +2966,7 @@ async function buildPDF(d, fotoB64 = []) {
   };
 
   section('Datos de la intervención');
+  row('Instalación', d.instalacionNombre || 'Sin instalación');
   row('Zona / Servicio', d.zona); row('Técnico', d.tec);
   row('Especialidad', d.esp); row('Elemento / Equipo', d.elem);
   if (d.mat && d.mat !== 'Sin especificar') row('Material', d.mat);
@@ -3496,52 +3505,109 @@ async function generateOTPDF(id) {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
-    const mg = 14;
-    let y = 16;
+    const W = 210, H = 297, mg = 14, cw = W - mg * 2;
+    let y = 0;
+    const PCOL = { URGENTE:[220,38,38], ALTA:[217,119,6], MEDIA:[37,99,235], BAJA:[107,114,128] };
+    const prio = (ot.prioridad || 'MEDIA').toUpperCase();
+    const pc = PCOL[prio] || PCOL.MEDIA;
     const fotosAntes = normalizeOTPhotos(ot.fotosAntes || [], 'antes');
     const fotosDespues = normalizeOTPhotos(ot.fotosDespues || [], 'despues');
     const fotos = [...fotosAntes.map(f => ({ ...f, bloque: 'ANTES' })), ...fotosDespues.map(f => ({ ...f, bloque: 'DESPUÉS' }))];
-    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.text('Informe de Orden de Trabajo', mg, y); y += 7;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    const info = [
-      `OT: ${ot.otNumero || ot.id || '—'}`,
-      `Título: ${ot.title || 'OT sin título'}`,
-      `Fecha: ${ot.fecha || '—'}`,
-      `Estado: ${ot.estado || 'Planificada'}`,
-      `Prioridad: ${ot.prioridad || 'MEDIA'}`,
-      `Instalación: ${ot.instalacionNombre || 'Sin instalación'}`,
-      `Zona: ${ot.zona || '—'}`,
-      `Especialidad: ${ot.especialidad || 'General'}`
-    ];
-    info.forEach(line => { doc.text(line, mg, y); y += 5; });
-    if (ot.nota) {
-      y += 1;
-      doc.setFont('helvetica','bold'); doc.text('Observaciones:', mg, y); y += 4;
+
+    doc.setFillColor(26, 95, 212);
+    doc.rect(0, 0, W, 28, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text('ISIVOLTPRO', mg, 11);
+    doc.setFontSize(10);
+    doc.text(`Instalación: ${ot.instalacionNombre || 'Sin instalación'}`, mg, 17.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Servicio de Mantenimiento · Orden de Trabajo', mg, 23);
+    doc.setFontSize(8.5);
+    doc.text(`OT: ${ot.otNumero || ot.id || '—'}   ·   Fecha: ${ot.fecha || '—'}   ·   Tipo: ${ot.tipo || 'OT'}`, mg, 27);
+
+    doc.setFillColor(...pc);
+    doc.rect(0, 28, W, 6, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text(`▌ PRIORIDAD: ${prio}   ·   ESTADO: ${(ot.estado || 'Planificada').toUpperCase()}   ·   ESPECIALIDAD: ${(ot.especialidad || 'GENERAL').toUpperCase()}`, mg, 32.5);
+    doc.setTextColor(20, 20, 20);
+    y = 40;
+
+    const checkPage = () => { if (y > H - 28) { doc.addPage(); y = 16; } };
+    const section = (title) => {
+      checkPage();
+      doc.setFillColor(237, 242, 252);
+      doc.rect(mg, y, cw, 7, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.setTextColor(...pc);
+      doc.text(title.toUpperCase(), mg + 3, y + 5);
+      doc.setTextColor(20, 20, 20);
+      y += 10;
+    };
+    const row = (label, value) => {
+      if (!value) return;
+      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
+      doc.text(label + ':', mg, y);
       doc.setFont('helvetica','normal');
-      const noteLines = doc.splitTextToSize(String(ot.nota), 180);
+      const lines = doc.splitTextToSize(String(value), cw - 36);
+      doc.text(lines, mg + 34, y);
+      y += lines.length * 5 + 2; checkPage();
+    };
+
+    section('Resumen OT');
+    row('Título', ot.title || 'OT sin título');
+    row('Instalación', ot.instalacionNombre || 'Sin instalación');
+    row('Zona', ot.zona || '—');
+    row('Fecha', ot.fecha || '—');
+    row('Estado', ot.estado || 'Planificada');
+    row('Prioridad', prio);
+    row('Especialidad', ot.especialidad || 'General');
+    row('Tipo', ot.tipo || 'OT');
+    if (ot.frecuencia) row('Frecuencia', ot.frecuencia);
+
+    if (ot.nota) {
+      section('Observaciones');
+      doc.setFont('helvetica','normal');
+      const noteLines = doc.splitTextToSize(String(ot.nota), cw);
       doc.text(noteLines, mg, y);
-      y += noteLines.length * 4 + 2;
+      y += noteLines.length * 4.5 + 2;
     }
     if (!fotos.length) {
+      section('Registro fotográfico');
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
       doc.text('Sin registro fotográfico en esta OT.', mg, y);
     } else {
-      doc.setFont('helvetica','bold'); doc.text('Registro fotográfico', mg, y); y += 6;
-      const w = 56, h = 44;
-      let col = 0;
+      section(`Registro fotográfico — ${fotos.length} imagen${fotos.length > 1 ? 'es' : ''}`);
+      const cols = 2;
+      const w = (cw - 4) / cols, h = 52;
       fotos.forEach((f, i) => {
-        if (y + h + 16 > 287) { doc.addPage(); y = 16; col = 0; }
-        const x = mg + col * (w + 6);
+        const col = i % cols;
+        if (col === 0 && i > 0) { y += h + 12; checkPage(); }
+        const x = mg + col * (w + 4);
         try { doc.addImage(f.b64, 'JPEG', x, y, w, h, `ot_${i}`, 'MEDIUM'); } catch {}
+        doc.setDrawColor(220, 228, 242);
+        doc.rect(x, y, w, h);
         doc.setFontSize(8);
+        doc.setTextColor(...pc);
+        doc.setFont('helvetica','bold');
         doc.text(`${f.bloque} · Foto ${i+1}`, x, y + h + 4);
+        doc.setTextColor(20, 20, 20);
         if (f.note) {
+          doc.setFont('helvetica','normal');
           const lines = doc.splitTextToSize(`Nota: ${f.note}`, w);
-          doc.text(lines.slice(0, 3), x, y + h + 8);
+          doc.text(lines.slice(0, 2), x, y + h + 8);
         }
-        col++;
-        if (col >= 3) { col = 0; y += h + 16; }
       });
+      y += h + 12;
     }
+
+    y = Math.max(y, H - 22);
+    doc.setFillColor(240, 244, 252);
+    doc.rect(0, y, W, H - y, 'F');
+    doc.setFont('helvetica','italic'); doc.setFontSize(7.5); doc.setTextColor(100,120,150);
+    doc.text(`Generado: ${new Date().toLocaleString('es-ES')}   ·   IsiVoltPro v1.0   ·   OT`, mg, y + 7);
+    doc.text('Firma técnico: _______________________         Firma responsable: _______________________', mg, y + 14);
+
     const filename = `OT_${(ot.otNumero || ot.id || 'sin-numero').toString().replace(/[^\w-]/g,'_')}.pdf`;
     doc.save(filename);
     toast('PDF de OT generado.');
