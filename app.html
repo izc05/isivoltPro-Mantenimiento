@@ -103,6 +103,13 @@ body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+body.app-from-intro {
+  animation: app-enter-from-intro .72s cubic-bezier(.22,.8,.2,1) both;
+}
+@keyframes app-enter-from-intro {
+  from { opacity: 0; filter: blur(5px) saturate(.9); transform: scale(1.012); }
+  to   { opacity: 1; filter: blur(0) saturate(1); transform: scale(1); }
+}
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -199,7 +206,15 @@ html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
 
 /* ── PAGES ──────────────────────────────────────────────── */
 .page { display: none; }
-.page.active { display: block; }
+.page.active {
+  display: block;
+  animation: page-in .3s cubic-bezier(.2,.8,.2,1);
+  transform-origin: 50% 0%;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px) scale(.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* ── CARDS ──────────────────────────────────────────────── */
 .card {
@@ -829,6 +844,24 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .toast.show { display: block; animation: toastIn .18s ease-out; }
 @keyframes toastIn { from { transform: translateX(-50%) translateY(6px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
 
+/* ── CONFIRM MODAL ─────────────────────────────────────── */
+.confirm-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  display: none; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+}
+.confirm-modal.show { display: flex; }
+.confirm-card {
+  width: min(420px, 100%);
+  border-radius: 16px; border: 1px solid var(--border2);
+  background: linear-gradient(160deg, var(--s1), var(--s2));
+  box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  padding: 16px;
+}
+.confirm-title { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.confirm-text  { font-size: 12px; color: var(--t2); line-height: 1.6; white-space: pre-line; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
 /* ── MINI LIST ──────────────────────────────────────────── */
 .mini-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .mini-item { background: rgba(255,255,255,.02); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
@@ -1371,6 +1404,8 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <button class="hist-tab" data-htab="preventivo"   onclick="setHistTab(this,'preventivo')">🔍 Preventivos</button>
       <button class="hist-tab" data-htab="urgente"      onclick="setHistTab(this,'urgente')">🔴 Urgentes</button>
       <button class="hist-tab" data-htab="mes"          onclick="setHistTab(this,'mes')">📅 Este mes</button>
+      <button class="hist-tab" data-htab="ot-cerrada-hoy"   onclick="setHistTab(this,'ot-cerrada-hoy')">✅ OT cerradas hoy</button>
+      <button class="hist-tab" data-htab="ot-reabierta-hoy" onclick="setHistTab(this,'ot-reabierta-hoy')">🔓 OT reabiertas hoy</button>
     </div>
 
     <div class="hist-search-wrap reveal">
@@ -1718,6 +1753,16 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 </nav>
 
 <div class="toast" id="toast"></div>
+<div class="confirm-modal" id="confirm-modal" aria-hidden="true">
+  <div class="confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-title" id="confirm-title">Confirmación</div>
+    <div class="confirm-text" id="confirm-text">¿Continuar?</div>
+    <div class="confirm-actions">
+      <button type="button" class="btn-ghost" id="confirm-cancel">Cancelar</button>
+      <button type="button" class="btn-primary" id="confirm-ok">Confirmar</button>
+    </div>
+  </div>
+</div>
 
 <!-- LIBRERÍAS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -1916,6 +1961,7 @@ const DB = (() => {
 'use strict';
 
 const SESSION_KEY = 'ivp_session_active';
+const OT_AUDIT_KEY = 'ivp_ot_audit';
 
 /* ══════════════════════════════════════════════════════════
    1. ESTADO GLOBAL
@@ -1933,6 +1979,7 @@ const App = {
   calYear:  new Date().getFullYear(),
   calMonth: new Date().getMonth(),
   histTab: 'todo',
+  otAudit: [],
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -1943,6 +1990,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.href = 'index.html';
     return;
   }
+  const fromIntro = new URLSearchParams(window.location.search).get('from') === 'intro';
+  if (fromIntro) {
+    document.body.classList.add('app-from-intro');
+    try {
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', cleanUrl);
+    } catch (_) {}
+  }
+  loadOTAudit();
   DB.loadGitHubConfig();
   await DB.init();
   applyTheme();
@@ -1983,6 +2039,7 @@ function logout() {
 }
 
 function goPage(id) {
+  if (App.page === id) return;
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
@@ -2481,10 +2538,13 @@ function renderHistorial() {
   // Filtro por tab
   const now = new Date();
   const mesActual = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const hoy = fmtDate(now);
   if (tab === 'averia')     items = items.filter(h => h._kind === 'inf' && h.tipo === 'averia');
   if (tab === 'preventivo') items = items.filter(h => h._kind === 'inf' && h.tipo === 'preventivo');
   if (tab === 'urgente')    items = items.filter(h => (h.prioridad||'').toUpperCase() === 'URGENTE');
   if (tab === 'mes')        items = items.filter(h => (h._when||'').startsWith(mesActual));
+  if (tab === 'ot-cerrada-hoy')   items = items.filter(h => h._kind === 'ot' && String(h.closedAt || '').startsWith(hoy));
+  if (tab === 'ot-reabierta-hoy') items = items.filter(h => h._kind === 'ot' && String(h.reopenedAt || '').startsWith(hoy));
 
   if (q) items = items.filter(h => h._search.includes(q));
   items.sort((a,b) => String(b._when).localeCompare(String(a._when)));
@@ -2522,7 +2582,7 @@ function renderHistorial() {
       </div>
       <div class="lc-actions">
         ${h._kind === 'inf' ? `<button class="lc-btn edit" onclick="editInforme('${h.id}')">✏️ Editar</button><button class="lc-btn dl" onclick="regenPDF('${h.id}')">⬇ PDF</button><button class="lc-btn del" onclick="deleteInforme('${h.id}')">🗑</button>` : ''}
-        ${h._kind === 'ot' ? `<button class="lc-btn edit" onclick="editOTStandalone('${h.id}')">✏ Editar</button><button class="lc-btn edit" onclick="${est === 'Cerrada' ? "setOTState('" + h.id + "','Planificada')" : "closeOT('" + h.id + "')"}">${est === 'Cerrada' ? '🔓 Reabrir' : '✅ Cerrar'}</button><button class="lc-btn del" onclick="deleteOT('${h.id}')">🗑</button>` : ''}
+        ${h._kind === 'ot' ? `<button class="lc-btn edit" onclick="editOTStandalone('${h.id}')">✏ Editar</button><button class="lc-btn edit" onclick="${est === 'Cerrada' ? "reopenOT('" + h.id + "','historial')" : "closeOT('" + h.id + "')"}">${est === 'Cerrada' ? '🔓 Reabrir' : '✅ Cerrar'}</button><button class="lc-btn del" onclick="deleteOT('${h.id}')">🗑</button>` : ''}
         ${h._kind === 'ins' ? `<button class="lc-btn edit" onclick="editInstallation('${h.id}')">✏ Editar</button><button class="lc-btn del" onclick="deleteInstallation('${h.id}')">🗑</button>` : ''}
       </div>
     </div>`;
@@ -2868,11 +2928,16 @@ function editOT(id) {
   toast('OT abierta para editar.');
 }
 async function setOTState(id, estado) {
+  const current = DB.getById('ots', id);
+  if (current?.estado === 'Cerrada' && estado === 'Planificada') {
+    await reopenOT(id, 'ot');
+    return;
+  }
   if (estado === 'Cerrada') {
     await closeOT(id);
     return;
   }
-  await DB.patch('ots', id, { estado });
+  await DB.patch('ots', id, { estado, updatedAt: new Date().toISOString() });
   renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
   toast(`OT actualizada a: ${estado}`);
 }
@@ -2880,14 +2945,43 @@ async function setOTState(id, estado) {
 async function closeOT(id) {
   const ot = DB.getById('ots', id);
   const titulo = ot?.title || 'OT';
-  if (!confirm(`Vas a cerrar esta OT:\n\n${titulo}\n\n¿Continuar?`)) return;
-  if (!confirm('Confirma de nuevo que quieres marcar esta OT como CERRADA.')) return;
-  await DB.patch('ots', id, { estado: 'Cerrada' });
+  const step1 = await confirmDialog({
+    title: 'Cerrar OT',
+    message: `Vas a cerrar esta OT:\n\n${titulo}\n\n¿Continuar?`,
+    okText: 'Sí, continuar',
+  });
+  if (!step1) return;
+  const step2 = await confirmDialog({
+    title: 'Confirmación final',
+    message: 'Confirma de nuevo que quieres marcar esta OT como CERRADA.',
+    okText: 'Sí, cerrar OT',
+  });
+  if (!step2) return;
+  const nowIso = new Date().toISOString();
+  await DB.patch('ots', id, { estado: 'Cerrada', closedAt: nowIso, updatedAt: nowIso });
+  registerOTAudit({ action: 'close', ot, before: ot?.estado || '—', after: 'Cerrada', origin: 'ot' });
   renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge(); toast('OT cerrada.');
 }
-async function reopenOT(id) {
-  await DB.patch('ots', id, { estado: 'Planificada' });
-  renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge(); toast('OT reabierta.');
+async function reopenOT(id, origin = 'ot') {
+  const ot = DB.getById('ots', id);
+  const titulo = ot?.title || 'OT';
+  const step1 = await confirmDialog({
+    title: 'Reabrir OT',
+    message: `Vas a reabrir esta OT:\n\n${titulo}\n\n¿Continuar?`,
+    okText: 'Sí, continuar',
+  });
+  if (!step1) return;
+  const step2 = await confirmDialog({
+    title: 'Confirmación final',
+    message: 'Confirma de nuevo que quieres marcar esta OT como PLANIFICADA.',
+    okText: 'Sí, reabrir OT',
+  });
+  if (!step2) return;
+  const nowIso = new Date().toISOString();
+  await DB.patch('ots', id, { estado: 'Planificada', reopenedAt: nowIso, updatedAt: nowIso });
+  registerOTAudit({ action: 'reopen', ot, before: ot?.estado || '—', after: 'Planificada', origin });
+  renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
+  toast(origin === 'historial' ? 'OT reabierta desde Historial.' : 'OT reabierta.');
 }
 async function deleteOT(id) {
   if (!confirm('¿Eliminar esta OT?')) return;
@@ -3351,6 +3445,66 @@ function toast(msg) {
   if (!t) return;
   t.textContent = msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function confirmDialog({ title = 'Confirmación', message = '¿Continuar?', okText = 'Confirmar', cancelText = 'Cancelar' } = {}) {
+  const modal = document.getElementById('confirm-modal');
+  const titleEl = document.getElementById('confirm-title');
+  const textEl = document.getElementById('confirm-text');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+  if (!modal || !titleEl || !textEl || !okBtn || !cancelBtn) {
+    return Promise.resolve(confirm(message));
+  }
+  titleEl.textContent = title;
+  textEl.textContent = message;
+  okBtn.textContent = okText;
+  cancelBtn.textContent = cancelText;
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  return new Promise(resolve => {
+    const close = (result) => {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onEsc);
+      resolve(result);
+    };
+    const onOk = () => close(true);
+    const onCancel = () => close(false);
+    const onBackdrop = (e) => { if (e.target === modal) close(false); };
+    const onEsc = (e) => { if (e.key === 'Escape') close(false); };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onEsc);
+  });
+}
+function loadOTAudit() {
+  try {
+    const raw = localStorage.getItem(OT_AUDIT_KEY);
+    App.otAudit = raw ? JSON.parse(raw) : [];
+  } catch (_) {
+    App.otAudit = [];
+  }
+}
+function saveOTAudit() {
+  try { localStorage.setItem(OT_AUDIT_KEY, JSON.stringify(App.otAudit.slice(0, 200))); } catch (_) {}
+}
+function registerOTAudit({ action = '', ot = {}, before = '', after = '', origin = '' } = {}) {
+  App.otAudit.unshift({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    at: new Date().toISOString(),
+    action,
+    origin,
+    otId: ot.id || '',
+    otTitle: ot.title || 'OT',
+    before,
+    after,
+  });
+  App.otAudit = App.otAudit.slice(0, 200);
+  saveOTAudit();
 }
 function esc(v = '') {
   return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;');
