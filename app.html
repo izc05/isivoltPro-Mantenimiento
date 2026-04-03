@@ -180,11 +180,16 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
   max-width: calc(var(--max) + 28px);
   margin: 0 auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.nav::-webkit-scrollbar { display: none; }
 html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
 .nav-btn {
   flex: 1; border: none; background: transparent; color: var(--t2);
   border-radius: 14px; padding: 8px 4px;
+  min-width: 86px;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   font-size: 9px; font-weight: 700; letter-spacing: .2px;
   transition: all .2s; position: relative;
@@ -729,6 +734,16 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .hist-type.inf{color:var(--green); border-color:var(--green); background:var(--green-s)}
 .hist-type.ins{color:var(--yellow); border-color:var(--yellow); background:var(--yellow-s)}
 
+/* ── REGLAMENTOS Y CHECKLIST HUB ───────────────────────── */
+.reg-grid{display:grid;gap:10px}
+.reg-card{border:1px solid var(--border);border-radius:14px;padding:12px;background:linear-gradient(160deg,var(--s2),var(--s3))}
+.reg-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}
+.reg-code{font-weight:800;font-family:var(--mono);color:var(--acc)}
+.reg-chip{font-size:10px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);color:var(--t2)}
+.reg-card ul{padding-left:18px;color:var(--t2);font-size:12px;line-height:1.5}
+.reg-card li{margin:3px 0}
+.check-hub{display:grid;gap:10px}
+
 /* ── EMPTY STATE ─────────────────────────────────────────── */
 .empty { text-align: center; padding: 50px 20px; color: var(--t3); }
 .empty-ico { font-size: 42px; margin-bottom: 12px; opacity: .4; }
@@ -1119,7 +1134,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="guide-actions">
         <button class="btn-ghost acc sm" onclick="goPage('informes')">📝 Registrar intervención</button>
         <button class="btn-ghost sm" onclick="goPage('ot')">🛠️ Priorizar OT</button>
-        <button class="btn-ghost green sm" onclick="goPage('calendario')">📅 Ver agenda</button>
+        <button class="btn-ghost green sm" onclick="goPage('ot')">📅 Ver agenda</button>
       </div>
     </div>
 
@@ -1604,6 +1619,58 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 </main>
 
 <!-- ═══════════════════════════════════════════════════
+     PÁGINA: CHECKLISTS
+═══════════════════════════════════════════════════ -->
+<main class="page" id="page-checklists">
+  <div class="wrap">
+    <div class="hero reveal">
+      <div class="hero-badge">✅ INSPECCIONES</div>
+      <div class="hero-title">Checklist por especialidad</div>
+      <div class="hero-sub">Prepara inspecciones rápidas y usa la checklist directamente al crear el informe.</div>
+    </div>
+
+    <div class="card reveal check-hub">
+      <div class="row2">
+        <div class="fgrp" style="margin-bottom:0">
+          <label>Especialidad</label>
+          <select id="chk-specialty" onchange="renderChecklistHub()">
+            <option>Electricidad</option>
+            <option>Fontanería</option>
+            <option>Climatización</option>
+            <option>Cerrajería</option>
+            <option>Obra civil</option>
+            <option>Gases medicinales</option>
+          </select>
+        </div>
+        <div class="btn-bar" style="margin:22px 0 0">
+          <button class="btn-ghost" onclick="renderChecklistHub()">🔄 Recargar</button>
+          <button class="btn-ghost acc" onclick="useChecklistInReport()">📝 Usar en informe</button>
+        </div>
+      </div>
+      <div id="chk-hub-list"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════
+     PÁGINA: REGLAMENTOS
+═══════════════════════════════════════════════════ -->
+<main class="page" id="page-reglamentos">
+  <div class="wrap">
+    <div class="hero reveal">
+      <div class="hero-badge">📚 NORMATIVA</div>
+      <div class="hero-title">Reglamentos técnicos</div>
+      <div class="hero-sub">Base inicial para estructurar reglamentos REBT, RITE y otras especialidades.</div>
+    </div>
+
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Catálogo inicial</div><div class="sec-line"></div></div>
+      <div class="reg-grid" id="reg-grid"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════
      PÁGINA: INSTALACIONES
 ═══════════════════════════════════════════════════ -->
 <main class="page" id="page-instalaciones">
@@ -1800,7 +1867,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     <span class="ico">📁</span><span>Historial</span>
   </button>
   <button class="nav-btn" id="nb-ot"          onclick="goPage('ot')" style="position:relative">
-    <span class="ico">🛠️</span><span>OT</span>
+    <span class="ico">📅</span><span>Agenda</span>
+  </button>
+  <button class="nav-btn" id="nb-checklists" onclick="goPage('checklists')">
+    <span class="ico">✅</span><span>Checklist</span>
+  </button>
+  <button class="nav-btn" id="nb-reglamentos" onclick="goPage('reglamentos')">
+    <span class="ico">📚</span><span>Reglamentos</span>
   </button>
   <button class="nav-btn" id="nb-instalaciones" onclick="goPage('instalaciones')">
     <span class="ico">🏷️</span><span>Instalaciones</span>
@@ -2068,6 +2141,8 @@ function renderAll() {
   renderCalGrid();
   renderInstalaciones();
   renderStats();
+  renderChecklistHub();
+  renderRegulations();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2088,14 +2163,14 @@ function goPage(id) {
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
-  ['inicio','informes','historial','ot','instalaciones','ajustes'].forEach(n => {
+  ['inicio','informes','historial','ot','checklists','reglamentos','instalaciones','ajustes'].forEach(n => {
     document.getElementById('nb-' + n)?.classList.toggle('active', n === id);
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
   initMotion();
   // FAB: visible en historial y OT
   const fab = document.getElementById('fab-nuevo');
-  if (fab) fab.classList.toggle('hidden', !['historial','ot','instalaciones','stats'].includes(id));
+  if (fab) fab.classList.toggle('hidden', !['historial','ot','checklists','reglamentos','instalaciones','stats'].includes(id));
   if (id === 'historial')    renderHistorial();
   if (id === 'ot')           {
     const sel = document.getElementById('f-instalacion');
@@ -2107,6 +2182,8 @@ function goPage(id) {
     const edit = document.getElementById('ot-edit-id')?.value;
     if (box && !edit) box.classList.remove('show');
   }
+  if (id === 'checklists') renderChecklistHub();
+  if (id === 'reglamentos') renderRegulations();
   if (id === 'instalaciones'){
     renderInstalaciones();
     const box = document.getElementById('inst-editor-wrap');
@@ -2251,6 +2328,44 @@ const CHECKLISTS = {
   'Obra civil':      ['Verificar remate, nivelación y seguridad de la zona.','Comprobar limpieza y retirada de material sobrante.','Revisar fijaciones, sellados o acabado.','Tomar foto del antes/después.'],
   'Gases medicinales':['Verificar cierre y estanqueidad del punto intervenido.','Comprobar presión y funcionamiento del ramal.','Revisar etiquetado y señalización.','Tomar foto del punto reparado.'],
 };
+const REGULATIONS = [
+  { code: 'REBT', area: 'Electricidad BT', docs: ['Cuadros y protecciones en baja tensión.','ITC-BT aplicables por área hospitalaria.','Frecuencia de inspecciones y registro de medidas.'] },
+  { code: 'RITE', area: 'Climatización', docs: ['Mantenimiento preventivo de equipos térmicos.','Control de calidad ambiental interior.','Protocolos de revisión y eficiencia energética.'] },
+  { code: 'PCI', area: 'Protección contra incendios', docs: ['Extinción, detección y señalización.','Pruebas periódicas obligatorias.','Trazabilidad de actuaciones y partes.'] },
+  { code: 'GASES MED', area: 'Gases medicinales', docs: ['Verificación de presión y estanqueidad.','Seguridad en tomas y válvulas de sector.','Plan de revisiones por zonas críticas.'] },
+];
+
+function renderChecklistHub() {
+  const specialty = document.getElementById('chk-specialty')?.value || 'Electricidad';
+  const items = CHECKLISTS[specialty] || CHECKLISTS.Electricidad;
+  const wrap = document.getElementById('chk-hub-list');
+  if (!wrap) return;
+  wrap.innerHTML = items.map((txt, i) => `
+    <label class="chk-item">
+      <input type="checkbox" data-hub="${i}">
+      <div><strong>${esc(specialty)}</strong><br>${esc(txt)}</div>
+    </label>`).join('');
+}
+
+function useChecklistInReport() {
+  const specialty = document.getElementById('chk-specialty')?.value || 'Electricidad';
+  const select = document.getElementById('f-esp');
+  if (select) select.value = specialty;
+  loadChecklistBySpecialty();
+  goPage('informes');
+  toast('Checklist aplicada al informe.');
+}
+
+function renderRegulations() {
+  const grid = document.getElementById('reg-grid');
+  if (!grid) return;
+  grid.innerHTML = REGULATIONS.map(reg => `
+    <article class="reg-card">
+      <div class="reg-head"><span class="reg-code">${esc(reg.code)}</span><span class="reg-chip">${esc(reg.area)}</span></div>
+      <ul>${reg.docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>
+    </article>`).join('');
+}
+
 function loadChecklistBySpecialty() {
   const esp   = document.getElementById('f-esp')?.value || 'Electricidad';
   const items = CHECKLISTS[esp] || CHECKLISTS.Electricidad;
