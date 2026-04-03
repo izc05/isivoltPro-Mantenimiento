@@ -954,9 +954,22 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .foto-drop-ico { font-size: 28px; margin-bottom: 6px; }
 .foto-drop-txt { font-size: 13px; font-weight: 700; }
 .foto-drop-sub { font-size: 11px; color: var(--t2); margin-top: 3px; }
-.foto-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-top: 10px; }
-.foto-item { position: relative; border-radius: 10px; overflow: hidden; aspect-ratio: 1; box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+.foto-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; }
+.foto-item { position: relative; border-radius: 12px; overflow: hidden; aspect-ratio: 1; box-shadow: 0 4px 12px rgba(0,0,0,.35); background: var(--s2); border:1px solid var(--border); }
 .foto-item img { width: 100%; height: 100%; object-fit: cover; }
+.foto-note{
+  width:100%;
+  margin-top:6px;
+  min-height:42px;
+  resize:vertical;
+  font-size:11px;
+  padding:7px 9px;
+  border-radius:8px;
+}
+.foto-card{
+  display:flex;
+  flex-direction:column;
+}
 .foto-rm { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.75); color: #fff; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
 .otf-photo-card{ background: var(--s2); border:1px solid var(--border); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; }
 .otf-photo-card img{ width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; }
@@ -998,12 +1011,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .err.show { display: block; }
 .toast {
   position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
-  background: linear-gradient(140deg, rgba(8,15,30,.96), rgba(14,25,44,.96));
+  background: linear-gradient(140deg, rgba(8,15,30,.78), rgba(14,25,44,.72));
   color: #fff;
-  padding: 10px 12px; border: 1px solid var(--border2);
+  padding: 10px 12px; border: 1px solid rgba(122,156,196,.42);
   border-radius: 14px; font-size: 12px; z-index: 9999;
   display: none; max-width: min(92vw, 520px);
-  box-shadow: 0 16px 30px rgba(0,0,0,.32);
+  box-shadow: 0 16px 30px rgba(0,0,0,.22);
+  backdrop-filter: blur(8px);
 }
 .toast.show { display: block; animation: toastIn .18s ease-out; }
 @keyframes toastIn { from { transform: translateX(-50%) translateY(6px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
@@ -1020,9 +1034,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   font-weight:700;
 }
 .toast-btn.undo{
-  background:var(--acc-s);
-  border-color: var(--acc);
-  color: var(--acc);
+  background: color-mix(in oklab, var(--acc-s) 68%, transparent);
+  border-color: color-mix(in oklab, var(--acc) 76%, white 18%);
+  color: #cbe0ff;
 }
 .toast-btn.close{
   width:28px; height:28px; border-radius:9px; padding:0;
@@ -2506,12 +2520,16 @@ function addFotos(e) {
   if (rem <= 0) { toast('Máximo 6 fotos.'); return; }
   Promise.all(files.slice(0, rem).map(f => compressImage(f, 1200, .72)))
     .then(results => {
-      results.forEach((b64, i) => App.fotos.push({ b64, name: files[i].name }));
+      results.forEach((b64, i) => App.fotos.push({ b64, name: files[i].name, note: '' }));
       renderFotos(); toast(`${results.length} foto(s) añadida(s).`);
     }).catch(() => toast('Error procesando alguna foto.'));
   e.target.value = '';
 }
 function removeFoto(i) { App.fotos.splice(i, 1); renderFotos(); }
+function updateFotoNote(i = 0, note = '') {
+  if (!App.fotos?.[i]) return;
+  App.fotos[i].note = note || '';
+}
 function renderFotos() {
   const grid  = document.getElementById('foto-grid');
   const drop  = document.getElementById('foto-drop');
@@ -2519,9 +2537,12 @@ function renderFotos() {
   if (!grid) return;
   drop.classList.toggle('has', App.fotos.length > 0);
   grid.innerHTML = App.fotos.map((f, i) => `
-    <div class="foto-item">
-      <img src="${f.b64}" alt="foto ${i+1}">
-      <button class="foto-rm" onclick="removeFoto(${i})">✕</button>
+    <div class="foto-card">
+      <div class="foto-item">
+        <img src="${f.b64}" alt="foto ${i+1}">
+        <button class="foto-rm" onclick="removeFoto(${i})">✕</button>
+      </div>
+      <textarea class="foto-note" placeholder="Anotación de foto (opcional)" oninput="updateFotoNote(${i},this.value)">${esc(f.note || '')}</textarea>
     </div>`).join('');
   if (badge) { badge.textContent = App.fotos.length || ''; badge.style.display = App.fotos.length ? 'block' : 'none'; }
 }
@@ -2550,6 +2571,12 @@ function updateOTFotoNote(kind = 'before', i = 0, note = '') {
   App[key][i].note = note || '';
 }
 function normalizeOTPhotos(list = [], prefix = 'foto') {
+  return (list || []).map((item, i) => {
+    if (typeof item === 'string') return { b64: item, name: `${prefix}-${i+1}`, note: '' };
+    return { b64: item?.b64 || '', name: item?.name || `${prefix}-${i+1}`, note: item?.note || '' };
+  }).filter(p => !!p.b64);
+}
+function normalizeReportPhotos(list = [], prefix = 'foto') {
   return (list || []).map((item, i) => {
     if (typeof item === 'string') return { b64: item, name: `${prefix}-${i+1}`, note: '' };
     return { b64: item?.b64 || '', name: item?.name || `${prefix}-${i+1}`, note: item?.note || '' };
@@ -2852,11 +2879,11 @@ async function generar() {
   try {
     step('ps1', 'active'); await sleep(180); step('ps1', 'done'); setProgBar(30);
     step('ps2', 'active');
-    const fotoB64 = App.fotos.map(f => f.b64);
+    const fotosInforme = normalizeReportPhotos(App.fotos, 'informe');
     await sleep(100); step('ps2', 'done'); setProgBar(55);
     step('ps3', 'active'); await sleep(120); step('ps3', 'done'); setProgBar(70);
     step('ps4', 'active');
-    const blob = await buildPDF(data, fotoB64);
+    const blob = await buildPDF(data, fotosInforme);
     step('ps4', 'done'); setProgBar(85);
     step('ps5', 'active');
     const fname = `IVP-${data.ot.replace(/\//g,'-')}-${data.fecha || 'sin-fecha'}.pdf`;
@@ -2866,7 +2893,7 @@ async function generar() {
     document.getElementById('res-fname').textContent = fname;
 
     // Guardar en DB
-    const record = { ...data, fname, id: `${Date.now()}` };
+    const record = { ...data, fname, fotos: fotosInforme, id: `${Date.now()}` };
     await DB.save('informes', record);
 
     step('ps5', 'done'); setProgBar(100);
@@ -2905,7 +2932,7 @@ function showErr(msg) {
 }
 
 /* ── PDF ENGINE ─────────────────────────────────────────── */
-async function buildPDF(d, fotoB64 = []) {
+async function buildPDF(d, fotosInput = []) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const W = 210, H = 297, mg = 14, cw = W - mg * 2;
@@ -2980,18 +3007,31 @@ async function buildPDF(d, fotoB64 = []) {
   if (d.checklist){ section('Checklist de calidad'); block('', d.checklist); }
 
   // ── Fotos ──
-  if (fotoB64.length) {
+  const fotos = normalizeReportPhotos(fotosInput, 'informe');
+  if (fotos.length) {
     checkPage();
-    section(`Registro fotográfico — ${fotoB64.length} imagen${fotoB64.length > 1 ? 'es' : ''}`);
-    const cols = fotoB64.length >= 2 ? 2 : 1;
-    const fw   = (cw - (cols - 1) * 4) / cols;
-    const fh   = 52;
-    for (let i = 0; i < fotoB64.length; i++) {
+    section(`Registro fotográfico — ${fotos.length} imagen${fotos.length > 1 ? 'es' : ''}`);
+    const cols = 2;
+    const fw   = (cw - (cols - 1) * 8) / cols;
+    const fh   = 42;
+    const noteH = 13;
+    for (let i = 0; i < fotos.length; i++) {
       const col = i % cols;
-      if (col === 0 && i > 0) { y += fh + 4; checkPage(); }
-      const fx = mg + col * (fw + 4);
-      try { doc.addImage(fotoB64[i], 'JPEG', fx, y, fw, fh, '', 'MEDIUM'); } catch {}
-      if (i === fotoB64.length - 1) y += fh + 4;
+      if (col === 0 && i > 0) { y += fh + noteH + 9; checkPage(); }
+      const fx = mg + col * (fw + 8);
+      try { doc.addImage(fotos[i].b64, 'JPEG', fx, y, fw, fh, '', 'MEDIUM'); } catch {}
+      doc.setDrawColor(220, 228, 242);
+      doc.rect(fx, y, fw, fh);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...pc);
+      doc.text(`Foto ${i+1}`, fx, y + fh + 4);
+      doc.setTextColor(20,20,20);
+      doc.setFont('helvetica','normal');
+      const nota = fotos[i].note ? `Nota: ${fotos[i].note}` : 'Nota: —';
+      const lines = doc.splitTextToSize(nota, fw);
+      doc.text(lines.slice(0, 2), fx, y + fh + 8.5);
+      if (i === fotos.length - 1) y += fh + noteH + 9;
     }
   }
 
@@ -3141,7 +3181,7 @@ async function regenPDF(id) {
   if (!h) return;
   toast('Regenerando PDF…');
   try {
-    const blob = await buildPDF(h, []);
+    const blob = await buildPDF(h, h.fotos || []);
     dlFile(URL.createObjectURL(blob), h.fname || `IVP-${h.ot}.pdf`);
   } catch(e) { toast('Error: ' + e.message); }
 }
@@ -3578,12 +3618,13 @@ async function generateOTPDF(id) {
       doc.text('Sin registro fotográfico en esta OT.', mg, y);
     } else {
       section(`Registro fotográfico — ${fotos.length} imagen${fotos.length > 1 ? 'es' : ''}`);
-      const cols = 2;
-      const w = (cw - 4) / cols, h = 52;
+      const cols = 1;
+      const w = Math.min(128, cw), h = 56;
+      const xBase = mg + (cw - w) / 2;
       fotos.forEach((f, i) => {
         const col = i % cols;
-        if (col === 0 && i > 0) { y += h + 12; checkPage(); }
-        const x = mg + col * (w + 4);
+        if (col === 0 && i > 0) { y += h + 15; checkPage(); }
+        const x = xBase + col * (w + 4);
         try { doc.addImage(f.b64, 'JPEG', x, y, w, h, `ot_${i}`, 'MEDIUM'); } catch {}
         doc.setDrawColor(220, 228, 242);
         doc.rect(x, y, w, h);
@@ -3592,13 +3633,11 @@ async function generateOTPDF(id) {
         doc.setFont('helvetica','bold');
         doc.text(`${f.bloque} · Foto ${i+1}`, x, y + h + 4);
         doc.setTextColor(20, 20, 20);
-        if (f.note) {
-          doc.setFont('helvetica','normal');
-          const lines = doc.splitTextToSize(`Nota: ${f.note}`, w);
-          doc.text(lines.slice(0, 2), x, y + h + 8);
-        }
+        doc.setFont('helvetica','normal');
+        const lines = doc.splitTextToSize(`Nota: ${f.note || '—'}`, w);
+        doc.text(lines.slice(0, 3), x, y + h + 8);
       });
-      y += h + 12;
+      y += h + 15;
     }
 
     y = Math.max(y, H - 22);
