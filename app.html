@@ -850,6 +850,46 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .mini-item b  { display: block; font-size: 12px; color: var(--t1); }
 .mini-item span { font-size: 10px; color: var(--t2); font-family: var(--mono); margin-top: 2px; display: block; }
 
+/* ── SMART GUIDE ─────────────────────────────────────────── */
+.guide-card {
+  border: 1px solid var(--border2);
+  background: linear-gradient(140deg, var(--s2), var(--s3));
+}
+.guide-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+.guide-title { font-size: 14px; font-weight: 800; }
+.guide-sub { font-size: 11px; color: var(--t2); margin-top: 4px; line-height: 1.45; }
+.guide-score {
+  flex-shrink: 0;
+  background: var(--acc-s);
+  border: 1px solid var(--acc);
+  color: var(--acc);
+  border-radius: 10px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.guide-progress {
+  margin-top: 12px;
+  height: 8px;
+  background: var(--s4);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.guide-progress > div {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--acc), var(--green));
+  border-radius: 999px;
+  transition: width .3s;
+}
+.guide-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ── INSTALACIONES ──────────────────────────────────────── */
 .inst-card { background: linear-gradient(160deg, var(--s1), var(--s2)); border: 1px solid var(--border); border-radius: var(--r2); padding: 14px; margin-bottom: 12px; }
 .inst-top { display: flex; gap: 12px; align-items: flex-start; }
@@ -1042,6 +1082,22 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="kpi-card">
         <div class="kpi-n" id="kpi-inst">0</div>
         <div class="kpi-l">Instalaciones</div>
+      </div>
+    </div>
+
+    <div class="card guide-card reveal">
+      <div class="guide-top">
+        <div>
+          <div class="guide-title">Guía inteligente del turno</div>
+          <div class="guide-sub" id="guide-message">Analizando estado operativo…</div>
+        </div>
+        <div class="guide-score" id="guide-score">0%</div>
+      </div>
+      <div class="guide-progress"><div id="guide-progress-fill"></div></div>
+      <div class="guide-actions">
+        <button class="btn-ghost acc sm" onclick="goPage('informes')">📝 Registrar intervención</button>
+        <button class="btn-ghost sm" onclick="goPage('ot')">🛠️ Priorizar OT</button>
+        <button class="btn-ghost green sm" onclick="goPage('calendario')">📅 Ver agenda</button>
       </div>
     </div>
 
@@ -3220,6 +3276,8 @@ function renderHome() {
   if (kUrg)   kUrg.textContent   = urgentes;
   if (kInst)  kInst.textContent  = totalInst;
 
+  renderHomeGuide({ informes, ots });
+
   // Banner de urgentes
   const banner = document.getElementById('urgentes-banner');
   const ubTitle = document.getElementById('ub-title');
@@ -3288,6 +3346,34 @@ function renderHome() {
       </div>
     `).join('') : `<div class="mini-item"><b>Sin actividad reciente</b><span>Aquí aparecerán las últimas intervenciones y cambios.</span></div>`;
   }
+}
+
+function renderHomeGuide({ informes = [], ots = [] } = {}) {
+  const msg = document.getElementById('guide-message');
+  const score = document.getElementById('guide-score');
+  const fill = document.getElementById('guide-progress-fill');
+  if (!msg || !score || !fill) return;
+
+  const abiertas = ots.filter(o => (o.estado || 'Planificada') !== 'Cerrada');
+  const urgentes = abiertas.filter(o => (o.prioridad || '').toUpperCase() === 'URGENTE').length;
+  const enDemora = abiertas.filter(o => (o.estado || '') === 'En demora').length;
+  const enCurso  = abiertas.filter(o => (o.estado || '') === 'En curso').length;
+  const total = ots.length || 1;
+  const cerradas = ots.filter(o => (o.estado || '') === 'Cerrada').length;
+
+  const saludBase = Math.round((cerradas / total) * 100);
+  const penalizacion = (urgentes * 18) + (enDemora * 10);
+  const salud = Math.max(0, Math.min(100, saludBase - penalizacion + (enCurso ? 6 : 0)));
+
+  let texto = 'Buen ritmo: turno controlado, mantén seguimiento preventivo.';
+  if (urgentes > 0) texto = `Atención: ${urgentes} OT urgente${urgentes > 1 ? 's' : ''} requieren prioridad inmediata.`;
+  else if (enDemora > 0) texto = `Hay ${enDemora} OT en demora; conviene reasignar recursos hoy.`;
+  else if (!abiertas.length && informes.length) texto = 'Todo al día: no hay OTs abiertas. Excelente cierre operativo.';
+  else if (!informes.length && !ots.length) texto = 'Empieza registrando la primera intervención para activar el tablero.';
+
+  msg.textContent = texto;
+  score.textContent = `${salud}%`;
+  fill.style.width = `${salud}%`;
 }
 
 /* ══════════════════════════════════════════════════════════
