@@ -103,6 +103,13 @@ body {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+body.app-from-intro {
+  animation: app-enter-from-intro .72s cubic-bezier(.22,.8,.2,1) both;
+}
+@keyframes app-enter-from-intro {
+  from { opacity: 0; filter: blur(5px) saturate(.9); transform: scale(1.012); }
+  to   { opacity: 1; filter: blur(0) saturate(1); transform: scale(1); }
+}
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -199,7 +206,15 @@ html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
 
 /* ── PAGES ──────────────────────────────────────────────── */
 .page { display: none; }
-.page.active { display: block; }
+.page.active {
+  display: block;
+  animation: page-in .3s cubic-bezier(.2,.8,.2,1);
+  transform-origin: 50% 0%;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(10px) scale(.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* ── CARDS ──────────────────────────────────────────────── */
 .card {
@@ -1943,6 +1958,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.href = 'index.html';
     return;
   }
+  const fromIntro = new URLSearchParams(window.location.search).get('from') === 'intro';
+  if (fromIntro) {
+    document.body.classList.add('app-from-intro');
+    try {
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', cleanUrl);
+    } catch (_) {}
+  }
   DB.loadGitHubConfig();
   await DB.init();
   applyTheme();
@@ -1983,6 +2006,7 @@ function logout() {
 }
 
 function goPage(id) {
+  if (App.page === id) return;
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
