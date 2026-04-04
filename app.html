@@ -136,6 +136,15 @@ body::before {
 img, video { max-width: 100%; display: block; }
 button { cursor: pointer; font-family: var(--font); }
 a { color: inherit; text-decoration: none; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible{
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -932,6 +941,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   position:relative;
   touch-action:manipulation;
   transition: box-shadow .18s ease, transform .18s ease;
+}
+.home-panel:focus-visible{
+  box-shadow: 0 0 0 2px var(--acc), 0 12px 28px rgba(0,0,0,.26);
 }
 .home-panel::before{
   content:'⠿ Arrastra para mover';
@@ -2131,6 +2143,12 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="stat-card"><div class="stat-n" id="st-av">0</div><div class="stat-l">Averías</div></div>
       <div class="stat-card"><div class="stat-n" id="st-prev">0</div><div class="stat-l">Preventivos</div></div>
     </div>
+    <div class="hist-tabs reveal" id="hist-tabs" role="tablist" aria-label="Filtros de historial">
+      <button class="hist-tab active" role="tab" aria-selected="true" tabindex="0" data-htab="todo"  onclick="setHistTab(this,'todo')">Todos</button>
+      <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="averia"       onclick="setHistTab(this,'averia')">🔧 Averías</button>
+      <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="preventivo"   onclick="setHistTab(this,'preventivo')">🔍 Preventivos</button>
+      <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="urgente"      onclick="setHistTab(this,'urgente')">🔴 Urgentes</button>
+      <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="mes"          onclick="setHistTab(this,'mes')">📅 Este mes</button>
     <div class="hist-tabs reveal" id="hist-tabs">
       <button class="hist-tab active" data-htab="todo"  onclick="setHistTab(this,'todo')">Todos</button>
       <button class="hist-tab" data-htab="averia"       onclick="setHistTab(this,'averia')">🔧 Averías</button>
@@ -2620,6 +2638,16 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
     </div>
 
     <div class="card reveal">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">Observabilidad básica</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.6">Registro local no intrusivo de errores reales (APIs externas y sincronización). Puedes exportarlo para soporte técnico.</div>
+      <div class="btn-bar">
+        <button class="btn-ghost acc" onclick="exportErrorLog()">🧾 Exportar log de errores</button>
+        <button class="btn-ghost" onclick="clearErrorLog()">🧹 Limpiar log</button>
+      </div>
+      <div id="error-log-meta" style="margin-top:8px;font-size:11px;color:var(--t3)">Errores registrados: 0</div>
+    </div>
+
+    <div class="card reveal">
       <div style="font-size:14px;font-weight:800;margin-bottom:6px">Opciones</div>
       <div class="btn-bar">
         <button class="btn-ghost" onclick="toggleTheme()">🌓 Tema claro/oscuro</button>
@@ -2697,7 +2725,56 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
    GitHub Pages + JSON via API · localStorage como caché
    ═══════════════════════════════════════════════════════════ */
 
+const ERROR_LOG_KEY = 'ivp_error_log';
+const ERROR_LOG_MAX = 200;
+const IVPErrorLog = (() => {
+  let entries = [];
+  const load = () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(ERROR_LOG_KEY) || '[]');
+      entries = Array.isArray(raw) ? raw : [];
+    } catch (_) {
+      entries = [];
+    }
+  };
+  const persist = () => {
+    try { localStorage.setItem(ERROR_LOG_KEY, JSON.stringify(entries.slice(-ERROR_LOG_MAX))); } catch (_) {}
+  };
+  const normalizeError = (err) => ({
+    message: err?.message || String(err || 'unknown_error'),
+    stack: typeof err?.stack === 'string' ? err.stack.slice(0, 1500) : '',
+    name: err?.name || 'Error',
+  });
+  const log = (type, err, meta = {}) => {
+    const row = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: new Date().toISOString(),
+      type,
+      error: normalizeError(err),
+      meta,
+      page: location.pathname,
+      ua: navigator.userAgent,
+    };
+    entries.push(row);
+    if (entries.length > ERROR_LOG_MAX) entries = entries.slice(-ERROR_LOG_MAX);
+    persist();
+    return row;
+  };
+  const list = () => [...entries];
+  const clear = () => { entries = []; persist(); };
+  const exportJSON = () => ({
+    app: 'IsiVoltPro',
+    exportedAt: new Date().toISOString(),
+    count: entries.length,
+    entries: list(),
+  });
+  load();
+  return { log, list, clear, exportJSON, count: () => entries.length };
+})();
+window.IVPErrorLog = IVPErrorLog;
+
 const DB = (() => {
+  const ERR = window.IVPErrorLog;
 
   /* ── CONFIG GITHUB ─────────────────────────────────────── */
   const GH = {
@@ -2756,6 +2833,7 @@ const DB = (() => {
         _pendingCols.delete(col);
       } catch (e) {
         console.warn('[DB] Pending sync failed:', col, e.message);
+        ERR?.log('sync.pending_flush_failed', e, { col });
       }
     }
     _persistPendingQueue();
@@ -2768,6 +2846,7 @@ const DB = (() => {
     _loadPendingQueue();
     _online = !!GH.owner && !!GH.repo && !!GH.token;
     if (_online) {
+      try { await _pullAll(); } catch(e) { console.warn('[DB] GitHub pull failed, using local:', e.message); ERR?.log('sync.pull_all_failed', e); }
       try { await _pullAll(); } catch(e) { console.warn('[DB] GitHub pull failed, using local:', e.message); }
       await _flushPendingQueue();
     }
@@ -2803,6 +2882,10 @@ const DB = (() => {
       },
     });
     if (!res.ok && res.status !== 404) {
+      const body = await res.text();
+      const err = new Error(`GitHub API ${res.status}: ${body}`);
+      err.status = res.status;
+      ERR?.log('sync.github_http_error', err, { endpoint, status: res.status });
       const err = new Error(`GitHub API ${res.status}: ${await res.text()}`);
       err.status = res.status;
       throw err;
@@ -2887,6 +2970,7 @@ const DB = (() => {
     else          _cache[col].unshift(record);
     _cache[col] = _cache[col].slice(0, 1000); // límite seguro
     _saveLocal(col);
+    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); ERR?.log('sync.push_failed', e, { col, op: 'save' }); _enqueuePending(col); }
     try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); _enqueuePending(col); }
     return record;
   }
@@ -2896,6 +2980,7 @@ const DB = (() => {
     if (!_cache[col]) return;
     _cache[col] = _cache[col].filter(r => r.id !== id);
     _saveLocal(col);
+    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); ERR?.log('sync.push_failed', e, { col, op: 'remove' }); _enqueuePending(col); }
     try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); _enqueuePending(col); }
   }
 
@@ -2923,6 +3008,7 @@ const DB = (() => {
       if (Array.isArray(json.data[col])) {
         _cache[col] = json.data[col];
         _saveLocal(col);
+        try { await _pushCol(col); } catch (e) { ERR?.log('sync.push_failed', e, { col, op: 'import_backup' }); _enqueuePending(col); }
         try { await _pushCol(col); } catch { _enqueuePending(col); }
       }
     }
@@ -2967,6 +3053,42 @@ const LAST_PAGE_KEY = 'ivp_last_page';
 let qrLibPromise = null;
 let pdfLibPromise = null;
 
+function refreshErrorLogMeta() {
+  const el = document.getElementById('error-log-meta');
+  if (!el) return;
+  el.textContent = `Errores registrados: ${IVPErrorLog.count()}`;
+}
+
+function exportErrorLog() {
+  const payload = IVPErrorLog.exportJSON();
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `isivoltpro-error-log-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  a.remove();
+  toast(`Log exportado (${payload.count} eventos).`);
+}
+
+function clearErrorLog() {
+  IVPErrorLog.clear();
+  refreshErrorLogMeta();
+  toast('Log de errores limpiado.');
+}
+
+window.addEventListener('error', (ev) => {
+  IVPErrorLog.log('runtime.error', ev.error || new Error(ev.message || 'runtime_error'), {
+    filename: ev.filename,
+    lineno: ev.lineno,
+    colno: ev.colno,
+  });
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  IVPErrorLog.log('runtime.unhandled_rejection', ev.reason || new Error('unhandled_rejection'));
+});
+
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
@@ -2989,6 +3111,7 @@ function registerServiceWorker() {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async (err) => {
       console.warn('[SW] Register failed:', err?.message || err);
+      IVPErrorLog.log('sw.register_failed', err);
       try {
         const regs = await navigator.serviceWorker.getRegistrations();
         await Promise.all(regs.map(r => r.unregister()));
@@ -3021,6 +3144,7 @@ const App = {
   homeRealtimeTimer: null,
   notifLastKey: '',
   homeExternalTimer: null,
+  modalLastFocus: null,
   homePanelDrag: null,
   homePanelEdit: false,
   homeWeatherAt: 0,
@@ -3094,6 +3218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDate();
   initDraft();
   initMotion();
+  initHistTabsKeyboard();
+  refreshErrorLogMeta();
   populateInstSelect();
   populateDocumentInstallationSelect();
   renderAll();
@@ -3125,6 +3251,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') closeAgendaModal();
+    handleAgendaModalKeydown(ev);
+  });
+  window.addEventListener('online', () => {
+    const before = DB.status().pendingSync || 0;
+    DB.flushPending().then(() => {
+      const after = DB.status().pendingSync || 0;
+      if (before > 0) {
+        toast(after > 0 ? `🔄 Conexión recuperada. Pendientes: ${after}.` : '✅ Conexión recuperada. Todo sincronizado.');
+      }
+    });
   });
   window.addEventListener('online', () => {
     const before = DB.status().pendingSync || 0;
@@ -3205,7 +3341,16 @@ function initHomePanelsDnD() {
   if (!container) return;
   const panelSelector = '.home-panel[data-panel-id]';
   const storageKey = 'ivp_home_panel_order';
+  container.setAttribute('role', 'list');
   const panels = () => [...container.querySelectorAll(panelSelector)];
+  const syncPanelA11y = () => {
+    panels().forEach((panel, idx) => {
+      panel.tabIndex = 0;
+      panel.setAttribute('role', 'group');
+      panel.setAttribute('aria-roledescription', 'panel movible');
+      panel.setAttribute('aria-label', `Panel ${idx + 1} de ${panels().length}. ${panel.dataset.panelId || ''}`.trim());
+    });
+  };
   const saveOrder = () => {
     const order = panels().map(el => el.dataset.panelId).filter(Boolean);
     try { localStorage.setItem(storageKey, JSON.stringify(order)); } catch (_) {}
@@ -3221,6 +3366,7 @@ function initHomePanelsDnD() {
     });
   };
   restoreOrder();
+  syncPanelA11y();
 
   let dragState = null;
   const setEditMode = (enabled) => {
@@ -3228,6 +3374,9 @@ function initHomePanelsDnD() {
     container.classList.toggle('editing', App.homePanelEdit);
     if (editBtn) editBtn.textContent = App.homePanelEdit ? '✖️ Cancelar mover' : '↕️ Mover paneles';
     if (saveBtn) saveBtn.style.display = App.homePanelEdit ? '' : 'none';
+    panels().forEach(panel => {
+      panel.setAttribute('aria-grabbed', App.homePanelEdit ? 'true' : 'false');
+    });
   };
 
   const finishDrag = () => {
@@ -3264,9 +3413,33 @@ function initHomePanelsDnD() {
     document.removeEventListener('pointermove', onMove, { passive: false });
     document.removeEventListener('pointerup', onUp);
     finishDrag();
+    syncPanelA11y();
+  };
+
+  const movePanelWithKeyboard = (panel, direction = 1) => {
+    const list = panels();
+    const from = list.indexOf(panel);
+    if (from < 0) return;
+    const to = Math.max(0, Math.min(list.length - 1, from + direction));
+    if (to === from) return;
+    const target = list[to];
+    if (direction > 0) container.insertBefore(target, panel);
+    else container.insertBefore(panel, target);
+    syncPanelA11y();
+    panel.focus();
   };
 
   panels().forEach(panel => {
+    panel.addEventListener('keydown', (ev) => {
+      if (!App.homePanelEdit) return;
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        movePanelWithKeyboard(panel, -1);
+      } else if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        movePanelWithKeyboard(panel, 1);
+      }
+    });
     panel.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0 || !App.homePanelEdit || dragState) return;
       const rect = panel.getBoundingClientRect();
@@ -3302,6 +3475,7 @@ function initHomePanelsDnD() {
   saveBtn?.addEventListener('click', () => {
     finishDrag();
     saveOrder();
+    syncPanelA11y();
     setEditMode(false);
     toast('✅ Orden de paneles guardado');
   });
@@ -3389,6 +3563,7 @@ function goPage(id, opts = {}) {
     populateDocumentInstallationSelect(document.getElementById('doc-inst-select')?.value || '');
     renderInstallationDocuments();
   }
+  if (target === 'ajustes') refreshErrorLogMeta();
   if (target === 'stats')        renderStats();
   if (target === 'inicio')       renderHome();
 }
@@ -4353,8 +4528,10 @@ function showDayTasks(dateKey, tasks) {
     </article>`;
   }).join('') : `<div class="agenda-task"><div class="agenda-task-title">Sin tareas en esta fecha</div></div>`;
 
+  App.modalLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');
+  modal.querySelector('.agenda-close')?.focus();
 }
 
 function closeAgendaModal() {
@@ -4362,6 +4539,28 @@ function closeAgendaModal() {
   if (!modal) return;
   modal.classList.remove('show');
   modal.setAttribute('aria-hidden', 'true');
+  if (App.modalLastFocus && typeof App.modalLastFocus.focus === 'function') {
+    App.modalLastFocus.focus();
+  }
+  App.modalLastFocus = null;
+}
+
+function handleAgendaModalKeydown(ev) {
+  const modal = document.getElementById('agenda-modal');
+  if (!modal?.classList.contains('show')) return;
+  if (ev.key !== 'Tab') return;
+  const focusables = [...modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.hasAttribute('disabled'));
+  if (!focusables.length) return;
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (ev.shiftKey && document.activeElement === first) {
+    ev.preventDefault();
+    last.focus();
+  } else if (!ev.shiftKey && document.activeElement === last) {
+    ev.preventDefault();
+    first.focus();
+  }
 }
 
 
@@ -5472,6 +5671,7 @@ async function fetchJSONSafe(url, { timeoutMs = 7000, fallback = null } = {}) {
     const data = await res.json();
     return { ok: true, data, source: 'api' };
   } catch (error) {
+    IVPErrorLog.log('external_api.request_failed', error, { url, timeoutMs, hasFallback: fallback !== null });
     if (fallback !== null) return { ok: false, data: fallback, source: 'mock', error };
     return { ok: false, data: null, source: 'error', error };
   } finally {
@@ -5590,6 +5790,8 @@ async function promptHomeWeatherLocation() {
     App.homeWeatherAt = 0;
     updateHomeExternalData(true);
     toast(`📍 Ubicación meteorológica: ${App.homeWeatherLocation.name}${source === 'mock' ? ' (simulada)' : ''}`);
+  } catch (err) {
+    IVPErrorLog.log('external_api.geocoding_failed', err, { query });
   } catch (_) {
     toast('⚠️ No se pudo actualizar la ubicación');
   }
@@ -6040,9 +6242,33 @@ function initMotion() {
 ══════════════════════════════════════════════════════════ */
 function setHistTab(btn, tab) {
   App.histTab = tab;
-  document.querySelectorAll('.hist-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.hist-tab').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-selected', 'false');
+    b.tabIndex = -1;
+  });
   btn.classList.add('active');
+  btn.setAttribute('aria-selected', 'true');
+  btn.tabIndex = 0;
   renderHistorial();
+}
+
+function initHistTabsKeyboard() {
+  const tabs = [...document.querySelectorAll('.hist-tab')];
+  if (!tabs.length) return;
+  tabs.forEach((tab, idx) => {
+    tab.addEventListener('keydown', (ev) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(ev.key)) return;
+      ev.preventDefault();
+      let next = idx;
+      if (ev.key === 'ArrowRight') next = (idx + 1) % tabs.length;
+      if (ev.key === 'ArrowLeft') next = (idx - 1 + tabs.length) % tabs.length;
+      if (ev.key === 'Home') next = 0;
+      if (ev.key === 'End') next = tabs.length - 1;
+      tabs[next].focus();
+      tabs[next].click();
+    });
+  });
 }
 
 /* ══════════════════════════════════════════════════════════
