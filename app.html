@@ -2965,6 +2965,22 @@ const DB = (() => {
 const SESSION_KEY = 'ivp_session_active';
 const LAST_PAGE_KEY = 'ivp_last_page';
 let qrLibPromise = null;
+let pdfLibPromise = null;
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+  if (new URLSearchParams(location.search).get('nosw') === '1') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async (err) => {
+      console.warn('[SW] Register failed:', err?.message || err);
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch (_) {}
+    });
+  }, { once: true });
+}
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -3122,7 +3138,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();
-  await ensureQRCodeLibrary();
   generateInstallationQR(true);
   renderInstallationTechSummary();
   renderInlineMapPreview();
@@ -3148,12 +3163,14 @@ function initHomeRealtime() {
   if (App.homeRealtimeTimer) clearInterval(App.homeRealtimeTimer);
   if (App.homeExternalTimer) clearInterval(App.homeExternalTimer);
   const tick = () => {
+    if (document.visibilityState !== 'visible') return;
     if (App.page === 'inicio') renderHome();
   };
-  tick();
+  if (App.page === 'inicio' && document.visibilityState === 'visible') tick();
   App.homeRealtimeTimer = window.setInterval(tick, 60 * 1000);
-  updateHomeExternalData(true);
+  if (App.page === 'inicio') updateHomeExternalData(true);
   App.homeExternalTimer = window.setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
     if (App.page === 'inicio') updateHomeExternalData();
   }, 5 * 60 * 1000);
 }
@@ -3899,6 +3916,8 @@ function showErr(msg) {
 
 /* ── PDF ENGINE ─────────────────────────────────────────── */
 async function buildPDF(d, fotosInput = []) {
+  const hasPDF = await ensurePDFLibrary();
+  if (!hasPDF || !window.jspdf?.jsPDF) throw new Error('Librería PDF no disponible');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
   const W = 210, H = 297, mg = 14, cw = W - mg * 2;
@@ -4611,6 +4630,8 @@ async function generateOTPDF(id) {
   const ot = DB.getById('ots', id);
   if (!ot) return;
   try {
+    const hasPDF = await ensurePDFLibrary();
+    if (!hasPDF || !window.jspdf?.jsPDF) throw new Error('Librería PDF no disponible');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4' });
     const W = 210, H = 297, mg = 14, cw = W - mg * 2;
@@ -5319,6 +5340,32 @@ async function ensureQRCodeLibrary() {
   })();
   const ready = await qrLibPromise;
   if (!ready) qrLibPromise = null;
+  return ready;
+}
+
+async function ensurePDFLibrary() {
+  if (window.jspdf?.jsPDF) return true;
+  if (pdfLibPromise) return pdfLibPromise;
+  const candidates = [
+    'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'
+  ];
+  pdfLibPromise = (async () => {
+    for (const src of candidates) {
+      const loaded = await new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+      if (loaded && window.jspdf?.jsPDF) return true;
+    }
+    return false;
+  })();
+  const ready = await pdfLibPromise;
+  if (!ready) pdfLibPromise = null;
   return ready;
 }
 
