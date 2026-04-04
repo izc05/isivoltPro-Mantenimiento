@@ -1289,6 +1289,15 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   font-size: 9px; font-family: var(--mono); color: var(--t3);
   margin-top: 2px; display: block;
 }
+.today-live-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.today-live-clock{ font-size:11px; color:var(--t2); font-family:var(--mono); }
+.today-live-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.today-live-card{ background:var(--s2); border:1px solid var(--border); border-radius:12px; padding:10px; }
+.today-live-card b{ font-size:20px; line-height:1; display:block; margin-bottom:6px; }
+.today-live-card span{ font-size:11px; color:var(--t2); }
+.today-live-card.overdue b{ color:var(--red); }
+.today-live-card.pending b{ color:var(--orange); }
+.today-live-card.done b{ color:var(--green); }
 
 /* ── HISTORIAL FILTRO TABS ───────────────────────────────── */
 .hist-tabs {
@@ -1536,6 +1545,18 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         <div class="home-state-card progress" data-ico="⚙️"><b id="home-proc">0</b><span>En curso</span></div>
         <div class="home-state-card delay"    data-ico="⏰"><b id="home-dem">0</b><span>Demoradas</span></div>
         <div class="home-state-card closed"   data-ico="✅"><b id="home-cerr">0</b><span>Cerradas</span></div>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="today-live-head">
+        <div class="sec-lbl">Panel hoy · tiempo real</div>
+        <div class="today-live-clock" id="home-live-clock">--:--</div>
+      </div>
+      <div class="today-live-grid">
+        <div class="today-live-card overdue"><b id="home-today-overdue">0</b><span>OT vencidas</span></div>
+        <div class="today-live-card pending"><b id="home-today-pending">0</b><span>Pendientes de hoy</span></div>
+        <div class="today-live-card done"><b id="home-today-done">0</b><span>Finalizadas hoy</span></div>
       </div>
     </div>
 
@@ -2703,6 +2724,8 @@ const App = {
   otFotosBefore: [],
   otFotosAfter:  [],
   instOriginalSnapshot: null,
+  homeRealtimeTimer: null,
+  notifLastKey: '',
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2747,6 +2770,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
   bindInstallationEditorEvents();
   initDayWatcher();
+  initHomeRealtime();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
   document.getElementById('agenda-modal')?.addEventListener('click', closeAgendaModal);
   document.addEventListener('keydown', (ev) => {
@@ -2773,6 +2797,15 @@ function initDayWatcher() {
     if (document.visibilityState === 'visible') refreshIfDayChanged();
   });
   window.addEventListener('focus', refreshIfDayChanged);
+}
+
+function initHomeRealtime() {
+  if (App.homeRealtimeTimer) clearInterval(App.homeRealtimeTimer);
+  const tick = () => {
+    if (App.page === 'inicio') renderHome();
+  };
+  tick();
+  App.homeRealtimeTimer = window.setInterval(tick, 60 * 1000);
 }
 
 function renderAll() {
@@ -4896,6 +4929,32 @@ function renderHome() {
   if (hd) hd.textContent = dem;
   if (hce) hce.textContent = cerr;
 
+  const todayKey = fmtDate(new Date());
+  const clock = document.getElementById('home-live-clock');
+  if (clock) clock.textContent = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const overdueToday = ots.filter(o => {
+    const due = (o.fecha || o.planfecha || '').slice(0, 10);
+    const st = (o.estado || '').toLowerCase();
+    return due && due < todayKey && st !== 'cerrada';
+  }).length;
+  const pendingToday = ots.filter(o => {
+    const due = (o.fecha || o.planfecha || '').slice(0, 10);
+    const st = (o.estado || '').toLowerCase();
+    return due === todayKey && st !== 'cerrada';
+  }).length;
+  const doneToday = ots.filter(o => {
+    const st = (o.estado || '').toLowerCase();
+    const mark = String(o.updatedAt || o.fecha || '').slice(0, 10);
+    return st === 'cerrada' && mark === todayKey;
+  }).length;
+  const homeOverdue = document.getElementById('home-today-overdue');
+  const homePending = document.getElementById('home-today-pending');
+  const homeDone = document.getElementById('home-today-done');
+  if (homeOverdue) homeOverdue.textContent = overdueToday;
+  if (homePending) homePending.textContent = pendingToday;
+  if (homeDone) homeDone.textContent = doneToday;
+  notifySoftMaintenance(todayKey, ots);
+
   const up = document.getElementById('home-upcoming');
   if (up) {
     const items = [...ots]
@@ -5032,6 +5091,24 @@ function renderHomeGuide({ informes = [], ots = [] } = {}) {
   msg.textContent = texto;
   score.textContent = `${salud}%`;
   fill.style.width = `${salud}%`;
+}
+
+function notifySoftMaintenance(todayKey, ots = []) {
+  const reminderItems = ots.filter(o => {
+    const due = (o.fecha || o.planfecha || '').slice(0, 10);
+    const st = (o.estado || '').toLowerCase();
+    const isPm = String(o.tipo || '').toUpperCase() === 'PM' || !!(o.freq && String(o.freq).trim());
+    return isPm && due && due <= todayKey && st !== 'cerrada';
+  });
+  if (!reminderItems.length) return;
+  const notifKey = `${todayKey}:${reminderItems.length}`;
+  if (App.notifLastKey === notifKey) return;
+  App.notifLastKey = notifKey;
+  let persisted = '';
+  try { persisted = localStorage.getItem('ivp_soft_notif_key') || ''; } catch (_) {}
+  if (persisted === notifKey) return;
+  try { localStorage.setItem('ivp_soft_notif_key', notifKey); } catch (_) {}
+  toast(`🔔 Recordatorio suave: ${reminderItems.length} mantenimiento(s) preventivo(s) para revisar hoy.`, { compact: true, duration: 2600 });
 }
 
 /* ══════════════════════════════════════════════════════════
