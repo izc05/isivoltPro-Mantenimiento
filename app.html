@@ -2149,6 +2149,12 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="preventivo"   onclick="setHistTab(this,'preventivo')">🔍 Preventivos</button>
       <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="urgente"      onclick="setHistTab(this,'urgente')">🔴 Urgentes</button>
       <button class="hist-tab" role="tab" aria-selected="false" tabindex="-1" data-htab="mes"          onclick="setHistTab(this,'mes')">📅 Este mes</button>
+    <div class="hist-tabs reveal" id="hist-tabs">
+      <button class="hist-tab active" data-htab="todo"  onclick="setHistTab(this,'todo')">Todos</button>
+      <button class="hist-tab" data-htab="averia"       onclick="setHistTab(this,'averia')">🔧 Averías</button>
+      <button class="hist-tab" data-htab="preventivo"   onclick="setHistTab(this,'preventivo')">🔍 Preventivos</button>
+      <button class="hist-tab" data-htab="urgente"      onclick="setHistTab(this,'urgente')">🔴 Urgentes</button>
+      <button class="hist-tab" data-htab="mes"          onclick="setHistTab(this,'mes')">📅 Este mes</button>
     </div>
 
     <div class="hist-search-wrap reveal">
@@ -2701,6 +2707,8 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   </div>
 </div>
 <footer class="sr-only">IsiVoltPro · Servicio de Mantenimiento.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    ISIVOLT PRO — Capa de datos
@@ -2941,6 +2949,7 @@ const DB = (() => {
   /** Devuelve configuración de GitHub (sin token) */
   function status() {
     return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size, branch: GH.branch };
+    return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size };
   }
 
   /** Guarda config GitHub en localStorage */
@@ -2975,6 +2984,21 @@ const SESSION_KEY = 'ivp_session_active';
 const LAST_PAGE_KEY = 'ivp_last_page';
 let qrLibPromise = null;
 let pdfLibPromise = null;
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+  if (new URLSearchParams(location.search).get('nosw') === '1') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async (err) => {
+      console.warn('[SW] Register failed:', err?.message || err);
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch (_) {}
+    });
+  }, { once: true });
+}
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -3131,6 +3155,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         toast(after > 0 ? `🔄 Conexión recuperada. Pendientes: ${after}.` : '✅ Conexión recuperada. Todo sincronizado.');
       }
     });
+  });
+  window.addEventListener('online', () => {
+    const before = DB.status().pendingSync || 0;
+    DB.flushPending().then(() => {
+      const after = DB.status().pendingSync || 0;
+      if (before > 0) {
+        toast(after > 0 ? `🔄 Conexión recuperada. Pendientes: ${after}.` : '✅ Conexión recuperada. Todo sincronizado.');
+      }
+    });
+    DB.flushPending().then(() => toast('🔄 Conexión recuperada. Sincronización pendiente actualizada.'));
   });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();
