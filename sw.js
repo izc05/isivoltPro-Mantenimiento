@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
         const copy = res.clone();
         caches.open(RUNTIME_CACHE).then(cache => cache.put(req, copy));
         return res;
-      });
+      }).catch(() => caches.match('./app.html') || caches.match('./index.html'));
     })
   );
 });
