@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>IsiVoltPro</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
@@ -412,7 +413,6 @@
   <div class="video-tools">
     <button class="tool-btn" id="upload-video-btn" type="button" aria-label="Subir vídeo de introducción">Subir vídeo intro</button>
     <button class="tool-btn" id="reset-video-btn" type="button" aria-label="Restaurar vídeo de introducción">Restaurar</button>
-    <button class="tool-btn" id="toggle-sound-btn" type="button" aria-label="Activar o desactivar sonido">🔇 Sonido OFF</button>
     <input id="video-file-input" type="file" accept="video/mp4,video/webm,video/ogg">
   </div>
 
@@ -488,12 +488,10 @@
 
 <script>
   const STORAGE_KEY = 'ivp-intro-video-dataurl';
-  const INTRO_SOUND_KEY = 'ivp_intro_sound_enabled';
   const SESSION_KEY = 'ivp_session_active';
   const bgVideo = document.getElementById('bg-video');
   const uploadBtn = document.getElementById('upload-video-btn');
   const resetBtn = document.getElementById('reset-video-btn');
-  const soundBtn = document.getElementById('toggle-sound-btn');
   const fileInput = document.getElementById('video-file-input');
   const videoTools = document.querySelector('.video-tools');
   const typewriterLine = document.getElementById('typewriter-line');
@@ -503,6 +501,21 @@
     'Reglamento REBT dividido en ITC para consulta rápida en campo.',
     'Activos, fotos y documentación centralizados en una sola app.'
   ];
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+    if (new URLSearchParams(location.search).get('nosw') === '1') return;
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async err => {
+        console.warn('[SW] Register failed:', err?.message || err);
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        } catch (_) {}
+      });
+    }, { once: true });
+  }
 
   function setVideoSource(videoSrc) {
     if (!bgVideo) return;
@@ -514,12 +527,13 @@
 
   function requestVideoPlay() {
     if (!bgVideo) return;
+    bgVideo.muted = true;
+    bgVideo.volume = 0;
     const playPromise = bgVideo.play();
     if (playPromise && typeof playPromise.catch === 'function') {
       playPromise.catch(() => {
-        // Fallback para navegadores que bloquean autoplay con sonido.
+        // Fallback para navegadores que bloquean autoplay.
         bgVideo.muted = true;
-        updateSoundButton();
         bgVideo.play().catch(() => {});
       });
     }
@@ -569,41 +583,21 @@
     setVideoSource('intro.mp4');
   }
 
-  function updateSoundButton() {
-    if (!soundBtn || !bgVideo) return;
-    soundBtn.textContent = bgVideo.muted ? '🔇 Sonido OFF' : '🔊 Sonido ON';
-  }
-
-  function applySavedSoundPreference() {
-    let enabled = false;
-    try { enabled = localStorage.getItem(INTRO_SOUND_KEY) === '1'; } catch (_) {}
-    if (bgVideo) bgVideo.muted = !enabled;
-    updateSoundButton();
-  }
-
-  function toggleIntroSound() {
-    if (!bgVideo) return;
-    bgVideo.muted = !bgVideo.muted;
-    try { localStorage.setItem(INTRO_SOUND_KEY, bgVideo.muted ? '0' : '1'); } catch (_) {}
-    requestVideoPlay();
-    updateSoundButton();
-  }
-
   uploadBtn?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', handleVideoUpload);
   resetBtn?.addEventListener('click', resetVideoToDefault);
-  soundBtn?.addEventListener('click', toggleIntroSound);
   bgVideo?.addEventListener('loadeddata', markVideoReady);
   bgVideo?.addEventListener('canplay', markVideoReady);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) requestVideoPlay();
   });
+  try { localStorage.removeItem('ivp_intro_sound_enabled'); } catch (_) {}
   document.addEventListener('click', requestVideoPlay, { once: true });
   document.addEventListener('touchstart', requestVideoPlay, { once: true });
   document.addEventListener('keydown', requestVideoPlay, { once: true });
   loadSavedVideo();
   initVideoToolsVisibility();
-  applySavedSoundPreference();
+  registerServiceWorker();
   requestVideoPlay();
   if (bgVideo?.readyState >= 2) markVideoReady();
 
