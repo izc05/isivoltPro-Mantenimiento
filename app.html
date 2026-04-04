@@ -2793,6 +2793,7 @@ const DB = (() => {
 'use strict';
 
 const SESSION_KEY = 'ivp_session_active';
+const LAST_PAGE_KEY = 'ivp_last_page';
 let qrLibPromise = null;
 
 /* ══════════════════════════════════════════════════════════
@@ -2823,6 +2824,8 @@ const App = {
   homeWeatherAt: 0,
   homeLightAt: 0,
 };
+
+const VALID_PAGES = ['inicio','informes','historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','documentos','stats','ajustes'];
 
 /* ══════════════════════════════════════════════════════════
    2. ARRANQUE
@@ -2879,6 +2882,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   generateInstallationQR(true);
   renderInstallationTechSummary();
   renderInlineMapPreview();
+  restoreLastPage();
 });
 
 function initDayWatcher() {
@@ -3048,27 +3052,40 @@ function logout() {
   window.location.href = 'index.html';
 }
 
-function goPage(id) {
-  if (App.page === id) return;
-  App.page = id;
+function goPage(id, opts = {}) {
+  const target = VALID_PAGES.includes(id) ? id : 'inicio';
+  const cfg = {
+    force: false,
+    save: true,
+    resetScroll: true,
+    smoothScroll: false,
+    ...opts,
+  };
+  if (!cfg.force && App.page === target) return;
+  App.page = target;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + id)?.classList.add('active');
-  ['inicio','informes','historial','agenda','ot','checklists','reglamentos','instalaciones','documentos','ajustes'].forEach(n => {
-    document.getElementById('nb-' + n)?.classList.toggle('active', n === id);
+  document.getElementById('page-' + target)?.classList.add('active');
+  VALID_PAGES.forEach(n => {
+    document.getElementById('nb-' + n)?.classList.toggle('active', n === target);
   });
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (cfg.resetScroll) {
+    window.scrollTo({ top: 0, behavior: cfg.smoothScroll ? 'smooth' : 'auto' });
+  }
+  if (cfg.save) {
+    try { localStorage.setItem(LAST_PAGE_KEY, target); } catch (_) {}
+  }
   initMotion();
   // FAB: visible en historial y OT
   const fab = document.getElementById('fab-nuevo');
-  if (fab) fab.classList.toggle('hidden', !['historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','stats','documentos'].includes(id));
-  if (id === 'historial')    renderHistorial();
-  if (id === 'agenda')       {
+  if (fab) fab.classList.toggle('hidden', !['historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','stats','documentos'].includes(target));
+  if (target === 'historial')    renderHistorial();
+  if (target === 'agenda')       {
     const sel = document.getElementById('f-instalacion');
     const otInst = document.getElementById('ot-inst-linked');
     if (otInst) otInst.textContent = sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '—';
     renderCalGrid();
   }
-  if (id === 'ot')           {
+  if (target === 'ot')           {
     fillOTInstallationSelect();
     renderOTList();
     renderOTFotos();
@@ -3076,20 +3093,29 @@ function goPage(id) {
     const edit = document.getElementById('ot-edit-id')?.value;
     if (box && !edit) box.classList.remove('show');
   }
-  if (id === 'checklists') renderChecklistHub();
-  if (id === 'reglamentos') renderRegulations();
-  if (id === 'rebt') renderREBTList();
-  if (id === 'instalaciones'){
+  if (target === 'checklists') renderChecklistHub();
+  if (target === 'reglamentos') renderRegulations();
+  if (target === 'rebt') renderREBTList();
+  if (target === 'instalaciones'){
     renderInstalaciones();
     const box = document.getElementById('inst-editor-wrap');
     if (box && !App.editingInstId) box.classList.remove('show');
   }
-  if (id === 'documentos') {
+  if (target === 'documentos') {
     populateDocumentInstallationSelect(document.getElementById('doc-inst-select')?.value || '');
     renderInstallationDocuments();
   }
-  if (id === 'stats')        renderStats();
-  if (id === 'inicio')       renderHome();
+  if (target === 'stats')        renderStats();
+  if (target === 'inicio')       renderHome();
+}
+
+function restoreLastPage() {
+  let page = 'inicio';
+  try {
+    const saved = localStorage.getItem(LAST_PAGE_KEY);
+    if (saved && VALID_PAGES.includes(saved)) page = saved;
+  } catch (_) {}
+  goPage(page, { force: true, save: false, resetScroll: false });
 }
 
 /* ══════════════════════════════════════════════════════════
