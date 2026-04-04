@@ -363,6 +363,16 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--acc);
   box-shadow: 0 0 0 3px var(--acc-g), inset 0 0 0 1px var(--acc);
 }
+input.field-invalid, select.field-invalid, textarea.field-invalid{
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(255,68,85,.14), inset 0 0 0 1px var(--red);
+}
+.input-error-msg{
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--red);
+  line-height: 1.35;
+}
 textarea { resize: vertical; min-height: 78px; line-height: 1.6; }
 select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233d5a8a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -393,6 +403,11 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .btn-primary:active { transform: scale(.98); opacity: .9; }
 .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; }
 .btn-primary.green { background: linear-gradient(135deg, var(--green), #009a60); box-shadow: 0 6px 20px var(--green-s); }
+.btn-primary.is-loading,
+.btn-ghost.is-loading{
+  opacity: .72;
+  pointer-events: none;
+}
 .btn-ghost {
   background: var(--s3); border: 1px solid var(--border2);
   color: var(--t1); font-size: 12px; padding: 10px 14px; border-radius: var(--r1);
@@ -2301,7 +2316,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
           </div>
         </div>
         <div class="btn-bar">
-          <button class="btn-primary" onclick="saveStandaloneOT()">💾 Guardar OT</button>
+          <button class="btn-primary" id="btn-ot-save" onclick="saveStandaloneOT()">💾 Guardar OT</button>
           <button class="btn-ghost" onclick="clearOTForm()">✨ Nueva ficha</button>
           <button class="btn-ghost red" onclick="toggleOTEditor(false)">✖ Cerrar</button>
         </div>
@@ -2587,7 +2602,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="fgrp"><label>Repositorio</label><input type="text" id="gh-repo" placeholder="isivolt-mantenimiento"></div>
       <div class="fgrp"><label>Personal Access Token</label><input type="password" id="gh-token" placeholder="github_pat_…"></div>
       <div class="fgrp"><label>Rama</label><input type="text" id="gh-branch" value="main"></div>
-      <button class="btn-primary" onclick="saveGitHubConfig()">💾 Guardar configuración GitHub</button>
+      <button class="btn-primary" id="btn-gh-save" onclick="saveGitHubConfig()">💾 Guardar configuración GitHub</button>
     </div>
 
     <div class="card reveal">
@@ -2953,6 +2968,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   initHomeRealtime();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
   document.getElementById('agenda-modal')?.addEventListener('click', closeAgendaModal);
+  document.querySelectorAll('input, textarea, select').forEach(el => {
+    const clean = () => { if (el.id) clearFieldError(el.id); };
+    el.addEventListener('input', clean);
+    el.addEventListener('change', clean);
+  });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') closeAgendaModal();
   });
@@ -3169,6 +3189,7 @@ function goPage(id, opts = {}) {
   VALID_PAGES.forEach(n => {
     document.getElementById('nb-' + n)?.classList.toggle('active', n === target);
   });
+  scrollActiveNavButton();
   if (cfg.resetScroll) {
     window.scrollTo({ top: 0, behavior: cfg.smoothScroll ? 'smooth' : 'auto' });
   }
@@ -3208,6 +3229,13 @@ function goPage(id, opts = {}) {
   }
   if (target === 'stats')        renderStats();
   if (target === 'inicio')       renderHome();
+}
+
+function scrollActiveNavButton() {
+  const nav = document.querySelector('.nav');
+  const active = nav?.querySelector('.nav-btn.active');
+  if (!nav || !active || window.matchMedia('(min-width: 1200px)').matches) return;
+  active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
 }
 
 function restoreLastPage() {
@@ -3654,7 +3682,10 @@ function initDraft() {
 ══════════════════════════════════════════════════════════ */
 async function generar() {
   const data = collectForm();
-  if (!data.zona || data.zona === 'Pendiente') { showErr('Indica la zona / servicio afectado.'); return; }
+  ['f-zona','f-desc','f-fecha'].forEach(clearFieldError);
+  if (!data.fecha) { setFieldError('f-fecha','Indica la fecha de la intervención.'); showErr('Falta la fecha de la intervención.'); return; }
+  if (!data.zona || data.zona === 'Pendiente') { setFieldError('f-zona','Indica la zona / servicio afectado.'); showErr('Indica la zona / servicio afectado.'); return; }
+  if (!data.desc?.trim()) { setFieldError('f-desc','Describe brevemente la intervención.'); showErr('Falta la descripción de la intervención.'); return; }
 
   setUI({ gen: false, prog: true, res: false, err: false });
   setProgBar(10);
@@ -4198,6 +4229,7 @@ function newOT() {
   clearOTForm();
 }
 async function saveStandaloneOT() {
+  ['otf-title','otf-fecha'].forEach(clearFieldError);
   const g = id => document.getElementById(id)?.value || '';
   const sel = document.getElementById('otf-instalacion');
   const ot = {
@@ -4217,11 +4249,19 @@ async function saveStandaloneOT() {
     fotosAntes: App.otFotosBefore.map(f => ({ b64: f.b64, note: f.note || '' })),
     fotosDespues: App.otFotosAfter.map(f => ({ b64: f.b64, note: f.note || '' })),
   };
-  if (!ot.fecha) { toast('Indica una fecha planificada.'); return; }
-  await DB.save('ots', ot);
-  renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
-  toggleOTEditor(false);
-  toast(g('ot-edit-id') ? 'OT actualizada.' : 'OT guardada.', { compact: true, closable: false, duration: 1600 });
+  if (!ot.title.trim()) { setFieldError('otf-title', 'Añade un título para la OT.'); toast('Falta el título de la OT.'); return; }
+  if (!ot.fecha) { setFieldError('otf-fecha', 'Indica una fecha planificada.'); toast('Indica una fecha planificada.'); return; }
+  setButtonLoading('btn-ot-save', true, '⏳ Guardando OT…');
+  try {
+    await DB.save('ots', ot);
+    renderOTList(); renderCalGrid(); renderHome(); renderHistorial(); updateOTBadge();
+    toggleOTEditor(false);
+    toast(g('ot-edit-id') ? 'OT actualizada.' : 'OT guardada.', { compact: true, closable: false, duration: 1600 });
+  } catch (err) {
+    toast('No se pudo guardar la OT: ' + (err?.message || 'error desconocido'));
+  } finally {
+    setButtonLoading('btn-ot-save', false);
+  }
 }
 function editOTStandalone(id) {
   const o = DB.getById('ots', id);
@@ -4692,11 +4732,17 @@ function renderInstallationTechSummary() {
 
 async function saveInstallation() {
   const g = id => (document.getElementById(id)?.value || '').trim();
+  ['inst-nombre','inst-email'].forEach(clearFieldError);
   if (App.editingInstId && App.instOriginalSnapshot === getInstallationFormSnapshot()) {
     toast('No hay cambios que guardar.');
     return;
   }
-  if (!g('inst-nombre')) { toast('Escribe el nombre de la instalación.'); return; }
+  if (!g('inst-nombre')) { setFieldError('inst-nombre','Escribe el nombre de la instalación.'); toast('Escribe el nombre de la instalación.'); return; }
+  if (g('inst-email') && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(g('inst-email'))) {
+    setFieldError('inst-email','Correo no válido.');
+    toast('Revisa el correo electrónico de la instalación.');
+    return;
+  }
   const qrValue = g('inst-qr-text') || buildInstQRValue();
   const payload = {
     id:            App.editingInstId || `${Date.now()}`,
@@ -4716,18 +4762,25 @@ async function saveInstallation() {
     qr:            qrValue,
     foto:          App.instPhotoB64 || '',
   };
-  await DB.save('instalaciones', payload);
-  App.editingInstId = payload.id;
-  App.instOriginalSnapshot = getInstallationFormSnapshot();
-  updateInstallationSaveState();
-  populateInstSelect(payload.id);
-  populateDocumentInstallationSelect(payload.id);
-  renderInstalaciones();
-  renderInstallationDocuments();
-  renderHome();
-  renderHistorial();
-  toggleInstEditor(false);
-  toast('Instalación guardada.');
+  setButtonLoading('inst-save-btn', true, '⏳ Guardando activo…');
+  try {
+    await DB.save('instalaciones', payload);
+    App.editingInstId = payload.id;
+    App.instOriginalSnapshot = getInstallationFormSnapshot();
+    updateInstallationSaveState();
+    populateInstSelect(payload.id);
+    populateDocumentInstallationSelect(payload.id);
+    renderInstalaciones();
+    renderInstallationDocuments();
+    renderHome();
+    renderHistorial();
+    toggleInstEditor(false);
+    toast('Instalación guardada.');
+  } catch (err) {
+    toast('No se pudo guardar la instalación: ' + (err?.message || 'error desconocido'));
+  } finally {
+    setButtonLoading('inst-save-btn', false);
+  }
 }
 function clearInstForm() {
   App.editingInstId = ''; App.instPhotoB64 = ''; App.instOriginalSnapshot = null;
@@ -5615,13 +5668,25 @@ async function importBackup(e) {
    20. CONFIGURACIÓN GITHUB
 ══════════════════════════════════════════════════════════ */
 function saveGitHubConfig() {
+  ['gh-owner','gh-repo','gh-token'].forEach(clearFieldError);
   const owner  = document.getElementById('gh-owner')?.value?.trim();
   const repo   = document.getElementById('gh-repo')?.value?.trim();
   const token  = document.getElementById('gh-token')?.value?.trim();
   const branch = document.getElementById('gh-branch')?.value?.trim() || 'main';
-  if (!owner || !repo || !token) { toast('Rellena usuario, repositorio y token.'); return; }
-  DB.configureGitHub({ owner, repo, token, branch });
-  toast('Configuración GitHub guardada. Recarga la app para sincronizar.');
+  if (!owner || !repo || !token) {
+    if (!owner) setFieldError('gh-owner','Usuario obligatorio.');
+    if (!repo) setFieldError('gh-repo','Repositorio obligatorio.');
+    if (!token) setFieldError('gh-token','Token obligatorio.');
+    toast('Rellena usuario, repositorio y token.');
+    return;
+  }
+  setButtonLoading('btn-gh-save', true, '⏳ Guardando configuración…');
+  try {
+    DB.configureGitHub({ owner, repo, token, branch });
+    toast('Configuración GitHub guardada. Recarga la app para sincronizar.');
+  } finally {
+    setButtonLoading('btn-gh-save', false);
+  }
 }
 function loadGHConfigToForm() {
   const s = DB.status();
@@ -5673,6 +5738,39 @@ function esc(v = '') {
 }
 function dlFile(url, name) { const a = document.createElement('a'); a.href = url; a.download = name; a.click(); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function clearFieldError(id = '') {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.classList.remove('field-invalid');
+  const msg = input.parentElement?.querySelector(`.input-error-msg[data-for="${id}"]`);
+  if (msg) msg.remove();
+}
+function setFieldError(id = '', message = 'Campo obligatorio') {
+  const input = document.getElementById(id);
+  if (!input) return;
+  clearFieldError(id);
+  input.classList.add('field-invalid');
+  const holder = document.createElement('div');
+  holder.className = 'input-error-msg';
+  holder.dataset.for = id;
+  holder.textContent = message;
+  input.parentElement?.appendChild(holder);
+}
+function setButtonLoading(btnId = '', isLoading = false, loadingText = 'Procesando…') {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  if (isLoading) {
+    if (!btn.dataset.prevLabel) btn.dataset.prevLabel = btn.textContent;
+    btn.classList.add('is-loading');
+    btn.disabled = true;
+    btn.textContent = loadingText;
+    return;
+  }
+  btn.classList.remove('is-loading');
+  btn.disabled = false;
+  btn.textContent = btn.dataset.prevLabel || btn.textContent;
+  delete btn.dataset.prevLabel;
+}
 function setValue(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
 function initDate() { setValue('f-fecha', new Date().toISOString().split('T')[0]); }
 function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
