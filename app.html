@@ -197,6 +197,7 @@ a { color: inherit; text-decoration: none; }
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
 }
 .nav::-webkit-scrollbar { display: none; }
 html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
@@ -205,8 +206,11 @@ html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
   border-radius: 14px; padding: 8px 4px;
   min-width: 86px;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
-  font-size: 9px; font-weight: 700; letter-spacing: .2px;
+  font-size: 10px; font-weight: 700; letter-spacing: .2px;
+  line-height: 1.2;
+  text-align: center;
   transition: all .2s; position: relative;
+  scroll-snap-align: start;
 }
 .nav-btn .ico { font-size: 18px; line-height: 1; }
 .nav-btn.active {
@@ -229,6 +233,19 @@ html[data-theme="light"] .nav { background: rgba(255,255,255,.93); }
   display: block;
   animation: page-in .3s cubic-bezier(.2,.8,.2,1);
   transform-origin: 50% 0%;
+}
+
+.hero-title,
+.hero-sub,
+.sec-lbl,
+.kpi-l,
+.btn-ghost,
+.nav-btn span{
+  overflow-wrap:anywhere;
+}
+.hero,
+.card{
+  min-width:0;
 }
 @keyframes page-in {
   from { opacity: 0; transform: translateY(10px) scale(.995); }
@@ -746,6 +763,57 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   .nav{
     left: 50%; right: auto; width: min(860px, calc(100vw - 24px));
     transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 640px){
+  :root{
+    --control-h: 40px;
+  }
+  .wrap{
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .hero{
+    padding: 16px 14px;
+  }
+  .hero-title{
+    font-size: clamp(20px, 5.7vw, 24px);
+  }
+  .hero-sub{
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .nav{
+    left: 6px;
+    right: 6px;
+    border-radius: 16px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .nav-btn{
+    min-width: 78px;
+    padding: 8px 3px;
+    font-size: 9px;
+  }
+  .nav-btn .ico{
+    font-size: 16px;
+  }
+  .toolbar-control{
+    flex: 1 1 calc(50% - 4px);
+    min-width: 120px;
+  }
+  #ot-filter-mes{
+    flex-basis: 100%;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 899px){
+  .toolbar-control{
+    min-width: 150px;
+  }
+  .kpi-grid.four{
+    grid-template-columns: repeat(2, minmax(0,1fr));
   }
 }
 
