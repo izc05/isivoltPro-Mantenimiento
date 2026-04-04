@@ -1217,6 +1217,12 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   color:var(--t2);
   font-family:var(--mono);
 }
+.map-caption{
+  margin-top:8px;
+  font-size:11px;
+  color:var(--t2);
+  font-family:var(--mono);
+}
 
 /* ── CHECKLIST ──────────────────────────────────────────── */
 .chk-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 12px; margin-bottom: 6px; }
@@ -2226,6 +2232,10 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
       <div class="fgrp"><label>Dirección / ubicación</label><input type="text" id="inst-direccion" placeholder="Ej: Hospital PTS · Planta 3 · UCI"></div>
       <div class="row2">
+        <div class="fgrp"><label>Teléfono de contacto</label><input type="tel" id="inst-telefono" placeholder="Ej: +34 600 123 456"></div>
+        <div class="fgrp"><label>Correo electrónico</label><input type="email" id="inst-email" placeholder="Ej: mantenimiento@hospital.com"></div>
+      </div>
+      <div class="row2">
         <div class="fgrp"><label>Zona / servicio</label><input type="text" id="inst-zona" placeholder="Ej: Planta 3 · UCI"></div>
         <div class="fgrp">
           <label>Especialidad</label>
@@ -2276,6 +2286,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="map-preview" id="inst-map-preview">
         <div class="map-preview-empty">Añade dirección o zona para activar la mini vista del mapa.</div>
       </div>
+      <div class="map-caption" id="inst-map-caption">Dirección del mini mapa: —</div>
     </div>
 
     <div id="inst-list"></div>
@@ -2723,7 +2734,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateReportInstallationTitle();
   loadChecklistBySpecialty();
   document.getElementById('f-esp')?.addEventListener('change', loadChecklistBySpecialty);
-  ['inst-nombre','inst-codigo','inst-zona','inst-direccion'].forEach(id => {
+  ['inst-nombre','inst-codigo','inst-zona','inst-direccion','inst-telefono','inst-email'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', () => {
       generateInstallationQR(false);
       renderInlineMapPreview();
@@ -3505,7 +3516,7 @@ function renderHistorial() {
     _when: i.updatedAt || '',
     _title: i.nombre || 'Instalación',
     _subtitle: `${i.codigo || 'Sin código'} · ${i.zona || i.direccion || 'Sin ubicación'} · ${i.especialidad || 'General'}`,
-    _search: [i.nombre, i.codigo, i.zona, i.direccion, i.especialidad, i.elemento, i.tecnico].filter(Boolean).join(' ').toLowerCase()
+    _search: [i.nombre, i.codigo, i.zona, i.direccion, i.telefono, i.email, i.especialidad, i.elemento, i.tecnico].filter(Boolean).join(' ').toLowerCase()
   }));
 
   let items = [...informes, ...ots, ...instalaciones];
@@ -4261,6 +4272,8 @@ function getInstallationFormSnapshot() {
     nombre:        g('inst-nombre'),
     codigo:        g('inst-codigo'),
     direccion:     g('inst-direccion'),
+    telefono:      g('inst-telefono'),
+    email:         g('inst-email'),
     zona:          g('inst-zona'),
     tecnico:       g('inst-tecnico'),
     especialidad:  g('inst-especialidad'),
@@ -4316,6 +4329,8 @@ async function saveInstallation() {
     nombre:        g('inst-nombre'),
     codigo:        g('inst-codigo'),
     direccion:     g('inst-direccion'),
+    telefono:      g('inst-telefono'),
+    email:         g('inst-email'),
     zona:          g('inst-zona'),
     tecnico:       g('inst-tecnico'),
     especialidad:  g('inst-especialidad'),
@@ -4342,7 +4357,7 @@ async function saveInstallation() {
 }
 function clearInstForm() {
   App.editingInstId = ''; App.instPhotoB64 = ''; App.instOriginalSnapshot = null;
-  ['inst-nombre','inst-codigo','inst-direccion','inst-zona','inst-tecnico',
+  ['inst-nombre','inst-codigo','inst-direccion','inst-telefono','inst-email','inst-zona','inst-tecnico',
    'inst-elemento','inst-potencia','inst-tension','inst-tecnicos','inst-observaciones','inst-qr-text']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const esp = document.getElementById('inst-especialidad'); if (esp) esp.value = '';
@@ -4372,6 +4387,8 @@ function editInstallation(id) {
   s('inst-nombre', inst.nombre);
   s('inst-codigo', inst.codigo);
   s('inst-direccion', inst.direccion);
+  s('inst-telefono', inst.telefono);
+  s('inst-email', inst.email);
   s('inst-zona', inst.zona);
   s('inst-tecnico', inst.tecnico);
   s('inst-especialidad', inst.especialidad);
@@ -4597,7 +4614,7 @@ function renderInstalaciones() {
   if (q) {
     items = items.filter(inst => {
       const text = [
-        inst.nombre, inst.codigo, inst.zona, inst.direccion,
+        inst.nombre, inst.codigo, inst.zona, inst.direccion, inst.telefono, inst.email,
         inst.especialidad, inst.elemento, inst.tecnico
       ].filter(Boolean).join(' ').toLowerCase();
       return text.includes(q);
@@ -4619,6 +4636,8 @@ function renderInstalaciones() {
           <div class="lc-detail">
             ${inst.elemento ? `<div class="lc-detail-row">⚙️ <strong>Elemento:</strong> <span>${esc(inst.elemento)}</span></div>` : ''}
             ${inst.tecnico ? `<div class="lc-detail-row">👷 <strong>Técnico:</strong> <span>${esc(inst.tecnico)}</span></div>` : ''}
+            ${inst.telefono ? `<div class="lc-detail-row">📞 <strong>Tel:</strong> <span>${esc(inst.telefono)}</span></div>` : ''}
+            ${inst.email ? `<div class="lc-detail-row">✉️ <strong>Email:</strong> <span>${esc(inst.email)}</span></div>` : ''}
             ${inst.potencia || inst.tension ? `<div class="lc-detail-row">🔌 <strong>Datos:</strong> <span>${esc((inst.potencia || '') + (inst.tension ? ' · ' + inst.tension : ''))}</span></div>` : ''}
           </div>
         </div>
@@ -4646,13 +4665,17 @@ function buildMapEmbedUrl() {
 
 function renderInlineMapPreview() {
   const box = document.getElementById('inst-map-preview');
+  const caption = document.getElementById('inst-map-caption');
   if (!box) return;
+  const rawAddress = (document.getElementById('inst-direccion')?.value || document.getElementById('inst-zona')?.value || document.getElementById('inst-nombre')?.value || '').trim();
   const mapUrl = buildMapEmbedUrl();
   if (!mapUrl) {
     box.innerHTML = '<div class="map-preview-empty">Añade dirección o zona para activar la mini vista del mapa.</div>';
+    if (caption) caption.textContent = 'Dirección del mini mapa: —';
     return;
   }
   box.innerHTML = `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrl}" title="Mapa de la instalación"></iframe>`;
+  if (caption) caption.textContent = `Dirección del mini mapa: ${rawAddress}`;
 }
 
 /* Foto instalación */
@@ -4682,12 +4705,16 @@ function buildInstQRValue() {
   const codigo = (document.getElementById('inst-codigo')?.value || '').trim();
   const zona = (document.getElementById('inst-zona')?.value || '').trim();
   const direccion = (document.getElementById('inst-direccion')?.value || '').trim();
+  const telefono = (document.getElementById('inst-telefono')?.value || '').trim();
+  const email = (document.getElementById('inst-email')?.value || '').trim();
   return [
     'IsiVoltPro · Instalación',
     nombre || 'Sin nombre',
     codigo ? `Código: ${codigo}` : '',
     zona ? `Zona: ${zona}` : '',
     direccion ? `Ubicación: ${direccion}` : '',
+    telefono ? `Tel: ${telefono}` : '',
+    email ? `Email: ${email}` : '',
   ].filter(Boolean).join(' | ');
 }
 async function ensureQRCodeLibrary() {
@@ -4725,17 +4752,20 @@ async function generateInstallationQR(force = false) {
   const value = input.value.trim() || buildInstQRValue();
   const hasQR = await ensureQRCodeLibrary();
   box.innerHTML = '';
+  const fallback = `https://api.qrserver.com/v1/create-qr-code/?size=156x156&data=${encodeURIComponent(value)}`;
   if (!hasQR) {
-    const fallback = `https://api.qrserver.com/v1/create-qr-code/?size=156x156&data=${encodeURIComponent(value)}`;
     box.innerHTML = `<img src="${fallback}" alt="QR instalación generado en modo compatible" style="width:78px;height:78px;display:block">`;
     if (meta) meta.textContent = 'QR generado en modo compatible (servicio externo).';
     return;
   }
   try {
     new QRCode(box, { text: value, width: 78, height: 78, correctLevel: QRCode.CorrectLevel.M });
+    const qrImg = box.querySelector('img,canvas');
+    if (!qrImg) throw new Error('QR sin render');
     if (meta) meta.textContent = `Contenido: ${value.slice(0, 90)}${value.length > 90 ? '…' : ''}`;
   } catch (_) {
-    if (meta) meta.textContent = 'No se pudo generar el QR.';
+    box.innerHTML = `<img src="${fallback}" alt="QR instalación generado en modo compatible" style="width:78px;height:78px;display:block">`;
+    if (meta) meta.textContent = 'QR regenerado en modo compatible.';
   }
 }
 function printInstallationQR() {
