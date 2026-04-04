@@ -1393,6 +1393,33 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .hist-search-wrap input { padding-left: 36px; }
 .hist-search-wrap::before { content:'🔍'; position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:13px; pointer-events:none; }
 
+/* ── DOCUMENTOS ──────────────────────────────────────────── */
+.doc-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.doc-toolbar .fgrp{margin:0;flex:1;min-width:220px}
+.doc-link-grid{display:grid;grid-template-columns:1fr 1.3fr auto;gap:8px;align-items:end}
+.doc-list{display:grid;gap:10px}
+.doc-item{
+  border:1px solid var(--border2);
+  border-radius:14px;
+  padding:10px;
+  background:linear-gradient(160deg,var(--s1),var(--s2));
+}
+.doc-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.doc-title{font-size:13px;font-weight:800}
+.doc-meta{font-size:10px;color:var(--t2);font-family:var(--mono);margin-top:4px}
+.doc-preview{
+  margin-top:8px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  overflow:hidden;
+  background:var(--s3);
+}
+.doc-preview img{width:100%;max-height:170px;object-fit:cover}
+.doc-link{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--acc);margin-top:8px}
+@media (max-width:620px){
+  .doc-link-grid{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -2226,6 +2253,50 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 </main>
 
 <!-- ═══════════════════════════════════════════════════
+     PÁGINA: DOCUMENTOS
+═══════════════════════════════════════════════════ -->
+<main class="page" id="page-documentos">
+  <div class="wrap">
+    <div class="hero reveal">
+      <div class="hero-badge">📄 DOCUMENTOS</div>
+      <div class="hero-title">Repositorio por instalación</div>
+      <div class="hero-sub">Adjunta manuales, fotos técnicas, PDFs y enlaces externos con vista previa rápida.</div>
+    </div>
+
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Seleccionar instalación</div><div class="sec-line"></div></div>
+      <div class="doc-toolbar">
+        <div class="fgrp">
+          <label>Instalación</label>
+          <select id="doc-inst-select" onchange="renderInstallationDocuments()">
+            <option value="">— Selecciona una instalación —</option>
+          </select>
+        </div>
+        <button class="btn-ghost" onclick="populateDocumentInstallationSelect(document.getElementById('doc-inst-select')?.value || '')">🔄 Actualizar</button>
+      </div>
+
+      <div class="sec" style="margin-top:6px"><div class="sec-line"></div><div class="sec-lbl">Añadir archivos</div><div class="sec-line"></div></div>
+      <input type="file" id="doc-file-input" multiple onchange="handleDocumentFiles(event)" style="display:none">
+      <div class="btn-bar">
+        <button class="btn-primary" onclick="document.getElementById('doc-file-input')?.click()">📎 Añadir nuevos archivos</button>
+      </div>
+
+      <div class="sec" style="margin-top:10px"><div class="sec-line"></div><div class="sec-lbl">Añadir enlace</div><div class="sec-line"></div></div>
+      <div class="doc-link-grid">
+        <div class="fgrp"><label>Título</label><input type="text" id="doc-link-title" placeholder="Ej: Manual oficial"></div>
+        <div class="fgrp"><label>URL</label><input type="url" id="doc-link-url" placeholder="https://..."></div>
+        <button class="btn-ghost acc" onclick="addDocumentLink()">➕ Guardar enlace</button>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Documentos cargados</div><div class="sec-line"></div></div>
+      <div class="doc-list" id="doc-list"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════
      PÁGINA: ESTADÍSTICAS
 ═══════════════════════════════════════════════════ -->
 <main class="page" id="page-stats">
@@ -2345,6 +2416,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   </button>
   <button class="nav-btn" id="nb-instalaciones" onclick="goPage('instalaciones')">
     <span class="ico">🏷️</span><span>Instalaciones</span>
+  </button>
+  <button class="nav-btn" id="nb-documentos" onclick="goPage('documentos')">
+    <span class="ico">📄</span><span>Documentos</span>
   </button>
   <button class="nav-btn" id="nb-ajustes"     onclick="goPage('ajustes')">
     <span class="ico">⚙️</span><span>Ajustes</span>
@@ -2611,6 +2685,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDraft();
   initMotion();
   populateInstSelect();
+  populateDocumentInstallationSelect();
   renderAll();
   updateReportInstallationTitle();
   loadChecklistBySpecialty();
@@ -2657,6 +2732,7 @@ function renderAll() {
   renderChecklistHub();
   renderRegulations();
   renderREBTList();
+  renderInstallationDocuments();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -2677,14 +2753,14 @@ function goPage(id) {
   App.page = id;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
-  ['inicio','informes','historial','agenda','ot','checklists','reglamentos','instalaciones','ajustes'].forEach(n => {
+  ['inicio','informes','historial','agenda','ot','checklists','reglamentos','instalaciones','documentos','ajustes'].forEach(n => {
     document.getElementById('nb-' + n)?.classList.toggle('active', n === id);
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
   initMotion();
   // FAB: visible en historial y OT
   const fab = document.getElementById('fab-nuevo');
-  if (fab) fab.classList.toggle('hidden', !['historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','stats'].includes(id));
+  if (fab) fab.classList.toggle('hidden', !['historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','stats','documentos'].includes(id));
   if (id === 'historial')    renderHistorial();
   if (id === 'agenda')       {
     const sel = document.getElementById('f-instalacion');
@@ -2707,6 +2783,10 @@ function goPage(id) {
     renderInstalaciones();
     const box = document.getElementById('inst-editor-wrap');
     if (box && !App.editingInstId) box.classList.remove('show');
+  }
+  if (id === 'documentos') {
+    populateDocumentInstallationSelect(document.getElementById('doc-inst-select')?.value || '');
+    renderInstallationDocuments();
   }
   if (id === 'stats')        renderStats();
   if (id === 'inicio')       renderHome();
@@ -4196,7 +4276,9 @@ async function saveInstallation() {
   App.instOriginalSnapshot = getInstallationFormSnapshot();
   updateInstallationSaveState();
   populateInstSelect(payload.id);
+  populateDocumentInstallationSelect(payload.id);
   renderInstalaciones();
+  renderInstallationDocuments();
   renderHome();
   renderHistorial();
   toggleInstEditor(false);
@@ -4259,7 +4341,11 @@ async function deleteInstallation(id) {
   if (!confirm(`¿Eliminar la instalación "${inst.nombre}"?`)) return;
   await DB.remove('instalaciones', id);
   if (App.editingInstId === id) clearInstForm();
-  populateInstSelect(); renderInstalaciones(); toast('Instalación eliminada.');
+  populateInstSelect();
+  populateDocumentInstallationSelect();
+  renderInstalaciones();
+  renderInstallationDocuments();
+  toast('Instalación eliminada.');
 }
 function useInstallation(id) {
   const inst = DB.getById('instalaciones', id);
@@ -4283,6 +4369,123 @@ function populateInstSelect(selId = '') {
     if (inst.id === selId) o.selected = true;
     sel.appendChild(o);
   });
+}
+
+function populateDocumentInstallationSelect(selId = '') {
+  const sel = document.getElementById('doc-inst-select');
+  if (!sel) return;
+  const current = selId || sel.value;
+  sel.innerHTML = '<option value="">— Selecciona una instalación —</option>';
+  DB.getAll('instalaciones').forEach(inst => {
+    const o = document.createElement('option');
+    o.value = inst.id;
+    o.textContent = `${inst.nombre}${inst.zona ? ' · ' + inst.zona : ''}`;
+    if (inst.id === current) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function formatFileSize(bytes = 0) {
+  const val = Number(bytes) || 0;
+  if (val < 1024) return `${val} B`;
+  if (val < 1024 * 1024) return `${(val / 1024).toFixed(1)} KB`;
+  return `${(val / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getCurrentDocumentInstallation() {
+  const instId = document.getElementById('doc-inst-select')?.value || '';
+  if (!instId) return null;
+  return DB.getById('instalaciones', instId);
+}
+
+function renderInstallationDocuments() {
+  const box = document.getElementById('doc-list');
+  if (!box) return;
+  const inst = getCurrentDocumentInstallation();
+  if (!inst) {
+    box.innerHTML = `<div class="empty"><div class="empty-ico">📄</div><p>Selecciona una instalación para ver o añadir documentación.</p></div>`;
+    return;
+  }
+  const docs = Array.isArray(inst.documentos) ? inst.documentos : [];
+  if (!docs.length) {
+    box.innerHTML = `<div class="empty"><div class="empty-ico">🗂️</div><p>No hay documentos todavía para <b>${esc(inst.nombre || 'esta instalación')}</b>.</p></div>`;
+    return;
+  }
+  box.innerHTML = docs.map(doc => {
+    const preview = doc.type?.startsWith('image/') && doc.preview
+      ? `<div class="doc-preview"><img src="${doc.preview}" alt="${esc(doc.name)}"></div>`
+      : '';
+    const link = doc.url
+      ? `<a class="doc-link" href="${esc(doc.url)}" target="_blank" rel="noopener noreferrer">🔗 Abrir enlace</a>`
+      : '';
+    return `<div class="doc-item">
+      <div class="doc-head">
+        <div>
+          <div class="doc-title">${esc(doc.name || 'Documento')}</div>
+          <div class="doc-meta">${esc(doc.type || 'Enlace')} · ${esc(doc.sizeLabel || '—')} · ${esc((doc.addedAt || '').replace('T', ' ').slice(0, 16) || '')}</div>
+        </div>
+        <button class="lc-btn del" onclick="deleteInstallationDocument('${inst.id}','${doc.id}')">🗑</button>
+      </div>
+      ${preview}
+      ${link}
+    </div>`;
+  }).join('');
+}
+
+async function handleDocumentFiles(e) {
+  const files = Array.from(e.target.files || []);
+  const inst = getCurrentDocumentInstallation();
+  if (!inst) { toast('Selecciona una instalación antes de subir archivos.'); e.target.value = ''; return; }
+  if (!files.length) return;
+  const docs = Array.isArray(inst.documentos) ? [...inst.documentos] : [];
+  for (const file of files) {
+    const preview = file.type.startsWith('image/') ? await compressImage(file, 900, .72) : '';
+    docs.unshift({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+      name: file.name,
+      type: file.type || 'archivo',
+      sizeLabel: formatFileSize(file.size),
+      addedAt: new Date().toISOString(),
+      preview,
+      url: '',
+    });
+  }
+  await DB.patch('instalaciones', inst.id, { documentos: docs });
+  renderInstallationDocuments();
+  toast(`${files.length} archivo(s) añadido(s).`);
+  e.target.value = '';
+}
+
+async function addDocumentLink() {
+  const inst = getCurrentDocumentInstallation();
+  if (!inst) { toast('Selecciona una instalación.'); return; }
+  const title = (document.getElementById('doc-link-title')?.value || '').trim();
+  const url = (document.getElementById('doc-link-url')?.value || '').trim();
+  if (!url) { toast('Escribe una URL válida.'); return; }
+  const docs = Array.isArray(inst.documentos) ? [...inst.documentos] : [];
+  docs.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    name: title || 'Enlace externo',
+    type: 'link',
+    sizeLabel: 'URL',
+    addedAt: new Date().toISOString(),
+    preview: '',
+    url,
+  });
+  await DB.patch('instalaciones', inst.id, { documentos: docs });
+  document.getElementById('doc-link-title').value = '';
+  document.getElementById('doc-link-url').value = '';
+  renderInstallationDocuments();
+  toast('Enlace guardado correctamente.');
+}
+
+async function deleteInstallationDocument(instId, docId) {
+  const inst = DB.getById('instalaciones', instId);
+  if (!inst) return;
+  const docs = (Array.isArray(inst.documentos) ? inst.documentos : []).filter(d => d.id !== docId);
+  await DB.patch('instalaciones', inst.id, { documentos: docs });
+  renderInstallationDocuments();
+  toast('Documento eliminado.');
 }
 
 function updateReportInstallationTitle() {
