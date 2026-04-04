@@ -2717,6 +2717,22 @@ const DB = (() => {
   let _ready = false;
   let _online = false;
   let _pendingCols = new Set();
+  const RETRY_MS = [350, 900, 1800];
+
+  const _wait = ms => new Promise(r => setTimeout(r, ms));
+  const _toTs = (v) => {
+    const t = Date.parse(v || '');
+    return Number.isFinite(t) ? t : 0;
+  };
+  function _mergeByNewest(localList = [], remoteList = []) {
+    const map = new Map();
+    [...remoteList, ...localList].forEach(item => {
+      if (!item?.id) return;
+      const prev = map.get(item.id);
+      if (!prev || _toTs(item.updatedAt) >= _toTs(prev.updatedAt)) map.set(item.id, item);
+    });
+    return [...map.values()].sort((a, b) => _toTs(b.updatedAt) - _toTs(a.updatedAt));
+  }
 
   function _loadPendingQueue() {
     try {
@@ -2786,7 +2802,11 @@ const DB = (() => {
         ...(options.headers || {}),
       },
     });
-    if (!res.ok && res.status !== 404) throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
+    if (!res.ok && res.status !== 404) {
+      const err = new Error(`GitHub API ${res.status}: ${await res.text()}`);
+      err.status = res.status;
+      throw err;
+    }
     return res.status === 404 ? null : res.json();
   }
 
@@ -2800,8 +2820,24 @@ const DB = (() => {
     if (!res) return; // archivo no existe aún
     _shas[col] = res.sha;
     const data = JSON.parse(atob(res.content.replace(/\n/g, '')));
-    _cache[col] = Array.isArray(data) ? data : [];
+    const remote = Array.isArray(data) ? data : [];
+    const local = Array.isArray(_cache[col]) ? _cache[col] : [];
+    _cache[col] = _mergeByNewest(local, remote);
     _saveLocal(col);
+  }
+
+  async function _withRetry(task) {
+    let lastErr = null;
+    for (let i = 0; i <= RETRY_MS.length; i++) {
+      try {
+        return await task();
+      } catch (err) {
+        lastErr = err;
+        if (i >= RETRY_MS.length) break;
+        await _wait(RETRY_MS[i]);
+      }
+    }
+    throw lastErr || new Error('retry_failed');
   }
 
   async function _pushCol(col) {
@@ -2814,8 +2850,19 @@ const DB = (() => {
       branch: GH.branch,
     };
     if (_shas[col]) body.sha = _shas[col];
-    const res = await _ghFetch(file, { method: 'PUT', body: JSON.stringify(body) });
-    if (res?.content?.sha) _shas[col] = res.content.sha;
+    try {
+      const res = await _withRetry(() => _ghFetch(file, { method: 'PUT', body: JSON.stringify(body) }));
+      if (res?.content?.sha) _shas[col] = res.content.sha;
+    } catch (err) {
+      if (err?.status === 409 || err?.status === 422) {
+        await _pullCol(col); // trae remoto + merge por updatedAt
+        const retryBody = { ...body, sha: _shas[col], content: btoa(unescape(encodeURIComponent(JSON.stringify(_cache[col], null, 2)))) };
+        const res = await _withRetry(() => _ghFetch(file, { method: 'PUT', body: JSON.stringify(retryBody) }));
+        if (res?.content?.sha) _shas[col] = res.content.sha;
+        return;
+      }
+      throw err;
+    }
   }
 
   /* ── API PÚBLICA ────────────────────────────────────────── */
@@ -2883,6 +2930,7 @@ const DB = (() => {
 
   /** Devuelve configuración de GitHub (sin token) */
   function status() {
+    return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size, branch: GH.branch };
     return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size };
   }
 
@@ -3063,6 +3111,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ev.key === 'Escape') closeAgendaModal();
   });
   window.addEventListener('online', () => {
+    const before = DB.status().pendingSync || 0;
+    DB.flushPending().then(() => {
+      const after = DB.status().pendingSync || 0;
+      if (before > 0) {
+        toast(after > 0 ? `🔄 Conexión recuperada. Pendientes: ${after}.` : '✅ Conexión recuperada. Todo sincronizado.');
+      }
+    });
     DB.flushPending().then(() => toast('🔄 Conexión recuperada. Sincronización pendiente actualizada.'));
   });
   setTimeout(updatePrioIndicator, 50);
@@ -5532,10 +5587,17 @@ function renderHome() {
   const dot = document.getElementById('hdr-sync-dot');
   if (dot) {
     const s = DB.status();
-    if (s.owner && s.repo && s.token) {
-      dot.classList.add('online'); dot.classList.remove('syncing');
+    if (s.online && s.pendingSync > 0) {
+      dot.classList.add('syncing');
+      dot.classList.remove('online');
+      dot.title = `Sincronización pendiente: ${s.pendingSync}`;
+    } else if (s.online) {
+      dot.classList.add('online');
+      dot.classList.remove('syncing');
+      dot.title = 'Sincronizado';
     } else {
       dot.classList.remove('online','syncing');
+      dot.title = 'Sin conexión GitHub';
     }
   }
 
