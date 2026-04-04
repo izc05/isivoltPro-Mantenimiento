@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>IsiVoltPro</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
@@ -2715,14 +2716,44 @@ const DB = (() => {
   let _shas  = {};     // SHA de cada fichero en GitHub para actualizar
   let _ready = false;
   let _online = false;
+  let _pendingCols = new Set();
+
+  function _loadPendingQueue() {
+    try {
+      const raw = JSON.parse(localStorage.getItem('ivp_sync_queue') || '[]');
+      _pendingCols = new Set(Array.isArray(raw) ? raw.filter(col => COLS.includes(col)) : []);
+    } catch { _pendingCols = new Set(); }
+  }
+  function _persistPendingQueue() {
+    try { localStorage.setItem('ivp_sync_queue', JSON.stringify([..._pendingCols])); } catch {}
+  }
+  function _enqueuePending(col) {
+    if (!COLS.includes(col)) return;
+    _pendingCols.add(col);
+    _persistPendingQueue();
+  }
+  async function _flushPendingQueue() {
+    if (!_online || !_pendingCols.size) return;
+    for (const col of [..._pendingCols]) {
+      try {
+        await _pushCol(col);
+        _pendingCols.delete(col);
+      } catch (e) {
+        console.warn('[DB] Pending sync failed:', col, e.message);
+      }
+    }
+    _persistPendingQueue();
+  }
 
   /* ── INIT ───────────────────────────────────────────────── */
   async function init(config = {}) {
     Object.assign(GH, config);
     _loadLocal();
+    _loadPendingQueue();
     _online = !!GH.owner && !!GH.repo && !!GH.token;
     if (_online) {
       try { await _pullAll(); } catch(e) { console.warn('[DB] GitHub pull failed, using local:', e.message); }
+      await _flushPendingQueue();
     }
     _ready = true;
     return _online;
@@ -2774,7 +2805,7 @@ const DB = (() => {
   }
 
   async function _pushCol(col) {
-    if (!_online) return;
+    if (!_online) { _enqueuePending(col); return; }
     const file  = `${GH.path}/${col}.json`;
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(_cache[col], null, 2))));
     const body = {
@@ -2809,7 +2840,7 @@ const DB = (() => {
     else          _cache[col].unshift(record);
     _cache[col] = _cache[col].slice(0, 1000); // límite seguro
     _saveLocal(col);
-    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); }
+    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); _enqueuePending(col); }
     return record;
   }
 
@@ -2818,7 +2849,7 @@ const DB = (() => {
     if (!_cache[col]) return;
     _cache[col] = _cache[col].filter(r => r.id !== id);
     _saveLocal(col);
-    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); }
+    try { await _pushCol(col); } catch(e) { console.warn('[DB] Push failed:', e.message); _enqueuePending(col); }
   }
 
   /** Actualiza solo campos específicos de un registro */
@@ -2845,14 +2876,14 @@ const DB = (() => {
       if (Array.isArray(json.data[col])) {
         _cache[col] = json.data[col];
         _saveLocal(col);
-        try { await _pushCol(col); } catch {}
+        try { await _pushCol(col); } catch { _enqueuePending(col); }
       }
     }
   }
 
   /** Devuelve configuración de GitHub (sin token) */
   function status() {
-    return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo };
+    return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size };
   }
 
   /** Guarda config GitHub en localStorage */
@@ -2860,6 +2891,7 @@ const DB = (() => {
     Object.assign(GH, cfg);
     try { localStorage.setItem('ivp_gh_config', JSON.stringify({ owner: GH.owner, repo: GH.repo, token: GH.token, branch: GH.branch })); } catch {}
     _online = !!(GH.owner && GH.repo && GH.token);
+    if (_online) _flushPendingQueue();
   }
 
   /** Carga config GitHub desde localStorage */
@@ -2870,7 +2902,7 @@ const DB = (() => {
     } catch {}
   }
 
-  return { init, getAll, getById, save, remove, patch, exportBackup, importBackup, status, configureGitHub, loadGitHubConfig };
+  return { init, getAll, getById, save, remove, patch, exportBackup, importBackup, status, configureGitHub, loadGitHubConfig, flushPending: _flushPendingQueue };
 })();
 
 </script>
@@ -2885,6 +2917,21 @@ const DB = (() => {
 const SESSION_KEY = 'ivp_session_active';
 const LAST_PAGE_KEY = 'ivp_last_page';
 let qrLibPromise = null;
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+  if (new URLSearchParams(location.search).get('nosw') === '1') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async (err) => {
+      console.warn('[SW] Register failed:', err?.message || err);
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch (_) {}
+    });
+  }, { once: true });
+}
 
 /* ══════════════════════════════════════════════════════════
    1. ESTADO GLOBAL
@@ -2962,6 +3009,7 @@ const SEO_BY_PAGE = {
    2. ARRANQUE
 ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
+  registerServiceWorker();
   if (!hasActiveSession()) {
     window.location.href = 'index.html';
     return;
@@ -3013,6 +3061,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') closeAgendaModal();
+  });
+  window.addEventListener('online', () => {
+    DB.flushPending().then(() => toast('🔄 Conexión recuperada. Sincronización pendiente actualizada.'));
   });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();

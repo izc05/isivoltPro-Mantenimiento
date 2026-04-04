@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>IsiVoltPro</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Barlow:wght@300;400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
@@ -501,6 +502,21 @@
     'Activos, fotos y documentación centralizados en una sola app.'
   ];
 
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (!(window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+    if (new URLSearchParams(location.search).get('nosw') === '1') return;
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(async err => {
+        console.warn('[SW] Register failed:', err?.message || err);
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        } catch (_) {}
+      });
+    }, { once: true });
+  }
+
   function setVideoSource(videoSrc) {
     if (!bgVideo) return;
     bgVideo.classList.remove('ready');
@@ -581,6 +597,7 @@
   document.addEventListener('keydown', requestVideoPlay, { once: true });
   loadSavedVideo();
   initVideoToolsVisibility();
+  registerServiceWorker();
   requestVideoPlay();
   if (bgVideo?.readyState >= 2) markVideoReady();
 
