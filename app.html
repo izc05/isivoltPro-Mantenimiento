@@ -2917,6 +2917,29 @@ const App = {
 };
 
 const DEFAULT_WEATHER_LOCATION = { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 };
+const API_ENDPOINTS = {
+  weather: ({ latitude, longitude }) => `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`,
+  geocoding: (q) => `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=es&format=json`,
+  lightNow: () => 'https://api.preciodelaluz.org/v1/prices/now?zone=PCB',
+};
+const MOCK_DATA = {
+  external: {
+    weather: {
+      current: { temperature_2m: 21.4, weather_code: 2, wind_speed_10m: 9 }
+    },
+    light: {
+      price: 118.2,
+      price_day_min: 74.9,
+      price_day_max: 163.4
+    },
+    geocoding: [
+      { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 },
+      { name: 'Barcelona', latitude: 41.3874, longitude: 2.1686 },
+      { name: 'Sevilla', latitude: 37.3891, longitude: -5.9845 },
+      { name: 'Valencia', latitude: 39.4699, longitude: -0.3763 },
+    ],
+  }
+};
 
 const VALID_PAGES = ['inicio','informes','historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','documentos','stats','ajustes'];
 
@@ -5264,6 +5287,22 @@ function renderStats() {
 /* ══════════════════════════════════════════════════════════
    17. HOME / INICIO
 ══════════════════════════════════════════════════════════ */
+async function fetchJSONSafe(url, { timeoutMs = 7000, fallback = null } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`http_${res.status}`);
+    const data = await res.json();
+    return { ok: true, data, source: 'api' };
+  } catch (error) {
+    if (fallback !== null) return { ok: false, data: fallback, source: 'mock', error };
+    return { ok: false, data: null, source: 'error', error };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function updateHomeExternalData(force = false) {
   const weatherTemp = document.getElementById('home-weather-temp');
   const weatherDesc = document.getElementById('home-weather-desc');
@@ -5288,9 +5327,8 @@ async function updateHomeExternalData(force = false) {
   }
 
   const weatherReq = (!App.homeWeatherAt || now - App.homeWeatherAt >= weatherTTL || force)
-    ? fetch(`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(loc.latitude)}&longitude=${encodeURIComponent(loc.longitude)}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`)
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('weather http')))
-      .then(data => {
+    ? fetchJSONSafe(API_ENDPOINTS.weather(loc), { fallback: MOCK_DATA.external.weather })
+      .then(({ data, source }) => {
         const current = data?.current || {};
         const t = Number(current.temperature_2m);
         const wind = Number(current.wind_speed_10m);
@@ -5302,7 +5340,7 @@ async function updateHomeExternalData(force = false) {
           95: 'Tormenta'
         };
         weatherTemp.textContent = Number.isFinite(t) ? `${t.toFixed(1)} °C` : '-- °C';
-        weatherDesc.textContent = `${labels[code] || 'Estado variable'} · Viento ${Number.isFinite(wind) ? wind.toFixed(0) : '--'} km/h`;
+        weatherDesc.textContent = `${labels[code] || 'Estado variable'} · Viento ${Number.isFinite(wind) ? wind.toFixed(0) : '--'} km/h${source === 'mock' ? ' · modo simulado' : ''}`;
         if (weatherIcon) weatherIcon.textContent = weatherCodeToIcon(code);
         App.homeWeatherAt = Date.now();
       })
@@ -5316,15 +5354,14 @@ async function updateHomeExternalData(force = false) {
     : Promise.resolve();
 
   const lightReq = (!App.homeLightAt || now - App.homeLightAt >= lightTTL || force)
-    ? fetch('https://api.preciodelaluz.org/v1/prices/now?zone=PCB')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('light http')))
-      .then(data => {
+    ? fetchJSONSafe(API_ENDPOINTS.lightNow(), { fallback: MOCK_DATA.external.light })
+      .then(({ data, source }) => {
         const priceMwh = Number(data?.price);
         const minMwh = Number(data?.price_day_min);
         const maxMwh = Number(data?.price_day_max);
         const nowKwh = priceMwh / 1000;
         lightPrice.textContent = Number.isFinite(nowKwh) ? `${nowKwh.toFixed(4)} €/kWh` : '-- €/kWh';
-        lightRange.textContent = `Mín ${Number.isFinite(minMwh) ? (minMwh/1000).toFixed(4) : '--'} · Máx ${Number.isFinite(maxMwh) ? (maxMwh/1000).toFixed(4) : '--'} €/kWh`;
+        lightRange.textContent = `Mín ${Number.isFinite(minMwh) ? (minMwh/1000).toFixed(4) : '--'} · Máx ${Number.isFinite(maxMwh) ? (maxMwh/1000).toFixed(4) : '--'} €/kWh${source === 'mock' ? ' · modo simulado' : ''}`;
         App.homeLightAt = Date.now();
       })
       .catch(() => {
@@ -5359,8 +5396,10 @@ async function promptHomeWeatherLocation() {
     return;
   }
   try {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=es&format=json`);
-    const data = await (r.ok ? r.json() : Promise.reject(new Error('geo')));
+    const mockResults = MOCK_DATA.external.geocoding.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+    const { data, source } = await fetchJSONSafe(API_ENDPOINTS.geocoding(query), {
+      fallback: { results: mockResults.length ? mockResults : MOCK_DATA.external.geocoding.slice(0,1) }
+    });
     const result = data?.results?.[0];
     if (!result) {
       toast('⚠️ No se encontró esa ubicación');
@@ -5374,7 +5413,7 @@ async function promptHomeWeatherLocation() {
     saveHomeWeatherLocation();
     App.homeWeatherAt = 0;
     updateHomeExternalData(true);
-    toast(`📍 Ubicación meteorológica: ${App.homeWeatherLocation.name}`);
+    toast(`📍 Ubicación meteorológica: ${App.homeWeatherLocation.name}${source === 'mock' ? ' (simulada)' : ''}`);
   } catch (_) {
     toast('⚠️ No se pudo actualizar la ubicación');
   }
