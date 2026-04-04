@@ -1194,6 +1194,29 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .qr-tools { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
 .qr-preview { margin-top:10px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .qr-meta { font-size:11px; color:var(--t2); line-height:1.45; font-family:var(--mono); }
+.inst-tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:10px}
+.inst-tech-item{
+  border:1px solid var(--border2);
+  border-radius:12px;
+  padding:9px 10px;
+  background:linear-gradient(160deg,color-mix(in oklab,var(--s2) 80%,var(--acc) 20%),var(--s1));
+}
+.inst-tech-item b{display:block;font-size:10px;font-family:var(--mono);color:var(--t2);letter-spacing:.2px}
+.inst-tech-item span{display:block;margin-top:4px;font-size:12px;color:var(--t1);font-weight:700}
+.map-preview{
+  margin-top:10px;
+  border:1px solid var(--border2);
+  border-radius:14px;
+  overflow:hidden;
+  background:var(--s2);
+}
+.map-preview iframe{display:block;width:100%;height:180px;border:0}
+.map-preview-empty{
+  padding:14px;
+  font-size:11px;
+  color:var(--t2);
+  font-family:var(--mono);
+}
 
 /* ── CHECKLIST ──────────────────────────────────────────── */
 .chk-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 12px; margin-bottom: 6px; }
@@ -1416,6 +1439,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 }
 .doc-preview img{width:100%;max-height:170px;object-fit:cover}
 .doc-link{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--acc);margin-top:8px}
+.doc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 @media (max-width:620px){
   .doc-link-grid{grid-template-columns:1fr}
 }
@@ -2222,6 +2246,12 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         <div class="fgrp"><label>Tensión / alimentación</label><input type="text" id="inst-tension" placeholder="Ej: 400 V III+N"></div>
       </div>
       <div class="fgrp"><label>Datos técnicos</label><textarea id="inst-tecnicos" placeholder="Modelo, fabricante, protecciones, medidas, caudales…"></textarea></div>
+      <div class="inst-tech-grid" id="inst-tech-grid">
+        <div class="inst-tech-item"><b>Elemento</b><span id="inst-tech-elemento">—</span></div>
+        <div class="inst-tech-item"><b>Potencia</b><span id="inst-tech-potencia">—</span></div>
+        <div class="inst-tech-item"><b>Tensión</b><span id="inst-tech-tension">—</span></div>
+        <div class="inst-tech-item"><b>Especialidad</b><span id="inst-tech-especialidad">—</span></div>
+      </div>
       <div class="fgrp"><label>Observaciones</label><textarea id="inst-observaciones" placeholder="Accesos, riesgos, notas de mantenimiento, manuales…"></textarea></div>
       <div class="fgrp">
         <label>Contenido QR (editable)</label>
@@ -2242,6 +2272,9 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
         <button class="btn-ghost" onclick="closeInstallationEditor()">✖️ Cerrar edición</button>
         <button class="btn-ghost" onclick="openMap()">🗺️ Abrir en mapa</button>
         <button class="btn-ghost red" onclick="deleteInstallation(App.editingInstId)">🗑 Borrar activo</button>
+      </div>
+      <div class="map-preview" id="inst-map-preview">
+        <div class="map-preview-empty">Añade dirección o zona para activar la mini vista del mapa.</div>
       </div>
     </div>
 
@@ -2691,7 +2724,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadChecklistBySpecialty();
   document.getElementById('f-esp')?.addEventListener('change', loadChecklistBySpecialty);
   ['inst-nombre','inst-codigo','inst-zona','inst-direccion'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', () => generateInstallationQR(false));
+    document.getElementById(id)?.addEventListener('input', () => {
+      generateInstallationQR(false);
+      renderInlineMapPreview();
+    });
+  });
+  ['inst-elemento','inst-potencia','inst-tension','inst-especialidad'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', renderInstallationTechSummary);
+    document.getElementById(id)?.addEventListener('change', renderInstallationTechSummary);
   });
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
   bindInstallationEditorEvents();
@@ -2705,6 +2745,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateOTBadge();
   await ensureQRCodeLibrary();
   generateInstallationQR(true);
+  renderInstallationTechSummary();
+  renderInlineMapPreview();
 });
 
 function initDayWatcher() {
@@ -4247,6 +4289,20 @@ function closeInstallationEditor() {
   toast('Edición cerrada sin guardar cambios.');
 }
 
+function renderInstallationTechSummary() {
+  const pairs = [
+    ['inst-tech-elemento', 'inst-elemento'],
+    ['inst-tech-potencia', 'inst-potencia'],
+    ['inst-tech-tension', 'inst-tension'],
+    ['inst-tech-especialidad', 'inst-especialidad'],
+  ];
+  pairs.forEach(([targetId, sourceId]) => {
+    const target = document.getElementById(targetId);
+    const source = document.getElementById(sourceId);
+    if (target) target.textContent = (source?.value || '').trim() || '—';
+  });
+}
+
 async function saveInstallation() {
   const g = id => (document.getElementById(id)?.value || '').trim();
   if (App.editingInstId && App.instOriginalSnapshot === getInstallationFormSnapshot()) {
@@ -4292,6 +4348,8 @@ function clearInstForm() {
   const esp = document.getElementById('inst-especialidad'); if (esp) esp.value = '';
   setPhotoPreview('');
   generateInstallationQR();
+  renderInstallationTechSummary();
+  renderInlineMapPreview();
   updateInstallationSaveState();
   toggleInstEditor(true);
   toast('Formulario limpio.');
@@ -4327,6 +4385,8 @@ function editInstallation(id) {
   App.editingInstId = inst.id;
   App.instPhotoB64 = inst.foto || '';
   generateInstallationQR();
+  renderInstallationTechSummary();
+  renderInlineMapPreview();
   App.instOriginalSnapshot = getInstallationFormSnapshot();
   updateInstallationSaveState();
   toggleInstEditor(true);
@@ -4415,9 +4475,9 @@ function renderInstallationDocuments() {
     const preview = doc.type?.startsWith('image/') && doc.preview
       ? `<div class="doc-preview"><img src="${doc.preview}" alt="${esc(doc.name)}"></div>`
       : '';
-    const link = doc.url
-      ? `<a class="doc-link" href="${esc(doc.url)}" target="_blank" rel="noopener noreferrer">🔗 Abrir enlace</a>`
-      : '';
+    const openUrl = doc.url || (doc.type?.startsWith('image/') ? doc.preview : '');
+    const canOpen = !!openUrl;
+    const isLink = doc.type === 'link';
     return `<div class="doc-item">
       <div class="doc-head">
         <div>
@@ -4427,7 +4487,10 @@ function renderInstallationDocuments() {
         <button class="lc-btn del" onclick="deleteInstallationDocument('${inst.id}','${doc.id}')">🗑</button>
       </div>
       ${preview}
-      ${link}
+      <div class="doc-actions">
+        ${canOpen ? `<button class="btn-ghost" onclick="openInstallationDocument('${inst.id}','${doc.id}')">${isLink ? '🔗 Abrir enlace' : '📂 Abrir documento'}</button>` : ''}
+        ${canOpen && !isLink ? `<button class="btn-ghost" onclick="downloadInstallationDocument('${inst.id}','${doc.id}')">⬇️ Descargar</button>` : ''}
+      </div>
     </div>`;
   }).join('');
 }
@@ -4440,6 +4503,7 @@ async function handleDocumentFiles(e) {
   const docs = Array.isArray(inst.documentos) ? [...inst.documentos] : [];
   for (const file of files) {
     const preview = file.type.startsWith('image/') ? await compressImage(file, 900, .72) : '';
+    const fileUrl = await fileToDataURL(file);
     docs.unshift({
       id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
       name: file.name,
@@ -4447,7 +4511,7 @@ async function handleDocumentFiles(e) {
       sizeLabel: formatFileSize(file.size),
       addedAt: new Date().toISOString(),
       preview,
-      url: '',
+      url: fileUrl,
     });
   }
   await DB.patch('instalaciones', inst.id, { documentos: docs });
@@ -4482,10 +4546,28 @@ async function addDocumentLink() {
 async function deleteInstallationDocument(instId, docId) {
   const inst = DB.getById('instalaciones', instId);
   if (!inst) return;
+  const doc = (Array.isArray(inst.documentos) ? inst.documentos : []).find(d => d.id === docId);
+  if (!confirm(`¿Eliminar "${doc?.name || 'este documento'}" de ${inst.nombre || 'la instalación'}?`)) return;
   const docs = (Array.isArray(inst.documentos) ? inst.documentos : []).filter(d => d.id !== docId);
   await DB.patch('instalaciones', inst.id, { documentos: docs });
   renderInstallationDocuments();
   toast('Documento eliminado.');
+}
+
+function openInstallationDocument(instId, docId) {
+  const inst = DB.getById('instalaciones', instId);
+  const doc = (Array.isArray(inst?.documentos) ? inst.documentos : []).find(d => d.id === docId);
+  const openUrl = doc?.url || (doc?.type?.startsWith('image/') ? doc.preview : '');
+  if (!openUrl) { toast('Este documento no tiene enlace de apertura.'); return; }
+  window.open(openUrl, '_blank', 'noopener,noreferrer');
+}
+
+function downloadInstallationDocument(instId, docId) {
+  const inst = DB.getById('instalaciones', instId);
+  const doc = (Array.isArray(inst?.documentos) ? inst.documentos : []).find(d => d.id === docId);
+  const fileUrl = doc?.url || (doc?.type?.startsWith('image/') ? doc.preview : '');
+  if (!fileUrl) { toast('Este documento no está disponible para descarga.'); return; }
+  dlFile(fileUrl, doc.name || 'documento');
 }
 
 function updateReportInstallationTitle() {
@@ -4554,6 +4636,23 @@ function openMap(id = '') {
   const q = encodeURIComponent(inst?.direccion || inst?.zona || inst?.nombre || '');
   if (!q) { toast('Añade una dirección primero.'); return; }
   window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
+}
+
+function buildMapEmbedUrl() {
+  const q = (document.getElementById('inst-direccion')?.value || document.getElementById('inst-zona')?.value || document.getElementById('inst-nombre')?.value || '').trim();
+  if (!q) return '';
+  return `https://www.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+}
+
+function renderInlineMapPreview() {
+  const box = document.getElementById('inst-map-preview');
+  if (!box) return;
+  const mapUrl = buildMapEmbedUrl();
+  if (!mapUrl) {
+    box.innerHTML = '<div class="map-preview-empty">Añade dirección o zona para activar la mini vista del mapa.</div>';
+    return;
+  }
+  box.innerHTML = `<iframe loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${mapUrl}" title="Mapa de la instalación"></iframe>`;
 }
 
 /* Foto instalación */
@@ -4627,7 +4726,9 @@ async function generateInstallationQR(force = false) {
   const hasQR = await ensureQRCodeLibrary();
   box.innerHTML = '';
   if (!hasQR) {
-    if (meta) meta.textContent = 'No se pudo cargar el generador de QR. Revisa conexión y vuelve a intentar.';
+    const fallback = `https://api.qrserver.com/v1/create-qr-code/?size=156x156&data=${encodeURIComponent(value)}`;
+    box.innerHTML = `<img src="${fallback}" alt="QR instalación generado en modo compatible" style="width:78px;height:78px;display:block">`;
+    if (meta) meta.textContent = 'QR generado en modo compatible (servicio externo).';
     return;
   }
   try {
@@ -5010,6 +5111,14 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function setValue(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
 function initDate() { setValue('f-fecha', new Date().toISOString().split('T')[0]); }
 function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 function compressImage(file, maxSize = 1200, quality = .72) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
