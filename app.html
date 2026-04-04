@@ -2931,6 +2931,7 @@ const DB = (() => {
   /** Devuelve configuración de GitHub (sin token) */
   function status() {
     return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size, branch: GH.branch };
+    return { online: _online, ready: _ready, owner: GH.owner, repo: GH.repo, pendingSync: _pendingCols.size };
   }
 
   /** Guarda config GitHub en localStorage */
@@ -3117,6 +3118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         toast(after > 0 ? `🔄 Conexión recuperada. Pendientes: ${after}.` : '✅ Conexión recuperada. Todo sincronizado.');
       }
     });
+    DB.flushPending().then(() => toast('🔄 Conexión recuperada. Sincronización pendiente actualizada.'));
   });
   setTimeout(updatePrioIndicator, 50);
   updateOTBadge();
