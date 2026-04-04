@@ -531,8 +531,6 @@
     const soundEnabled = allowSound || localStorage.getItem(SOUND_KEY) === '1';
     bgVideo.muted = !soundEnabled;
     bgVideo.volume = soundEnabled ? 1 : 0;
-    bgVideo.muted = true;
-    bgVideo.volume = 0;
     const playPromise = bgVideo.play();
     if (playPromise && typeof playPromise.catch === 'function') {
       playPromise.catch(() => {
@@ -605,10 +603,6 @@
   document.addEventListener('click', enableIntroSound, { once: true });
   document.addEventListener('touchstart', enableIntroSound, { once: true });
   document.addEventListener('keydown', enableIntroSound, { once: true });
-  try { localStorage.removeItem('ivp_intro_sound_enabled'); } catch (_) {}
-  document.addEventListener('click', requestVideoPlay, { once: true });
-  document.addEventListener('touchstart', requestVideoPlay, { once: true });
-  document.addEventListener('keydown', requestVideoPlay, { once: true });
   loadSavedVideo();
   initVideoToolsVisibility();
   registerServiceWorker();
@@ -676,6 +670,7 @@
 
   // Entrar a la app
   function enterApp() {
+    enableIntroSound();
     try { localStorage.setItem(SESSION_KEY, '1'); } catch (_) {}
     document.body.classList.add('exit');
     setTimeout(() => {
