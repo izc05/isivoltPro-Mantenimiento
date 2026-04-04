@@ -488,6 +488,7 @@
 
 <script>
   const STORAGE_KEY = 'ivp-intro-video-dataurl';
+  const SOUND_KEY = 'ivp_intro_sound_enabled';
   const SESSION_KEY = 'ivp_session_active';
   const bgVideo = document.getElementById('bg-video');
   const uploadBtn = document.getElementById('upload-video-btn');
@@ -525,8 +526,11 @@
     requestVideoPlay();
   }
 
-  function requestVideoPlay() {
+  function requestVideoPlay({ allowSound = false } = {}) {
     if (!bgVideo) return;
+    const soundEnabled = allowSound || localStorage.getItem(SOUND_KEY) === '1';
+    bgVideo.muted = !soundEnabled;
+    bgVideo.volume = soundEnabled ? 1 : 0;
     bgVideo.muted = true;
     bgVideo.volume = 0;
     const playPromise = bgVideo.play();
@@ -534,9 +538,16 @@
       playPromise.catch(() => {
         // Fallback para navegadores que bloquean autoplay.
         bgVideo.muted = true;
+        bgVideo.volume = 0;
         bgVideo.play().catch(() => {});
       });
     }
+  }
+
+  function enableIntroSound() {
+    if (!bgVideo) return;
+    try { localStorage.setItem(SOUND_KEY, '1'); } catch (_) {}
+    requestVideoPlay({ allowSound: true });
   }
 
   function markVideoReady() {
@@ -591,6 +602,9 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) requestVideoPlay();
   });
+  document.addEventListener('click', enableIntroSound, { once: true });
+  document.addEventListener('touchstart', enableIntroSound, { once: true });
+  document.addEventListener('keydown', enableIntroSound, { once: true });
   try { localStorage.removeItem('ivp_intro_sound_enabled'); } catch (_) {}
   document.addEventListener('click', requestVideoPlay, { once: true });
   document.addEventListener('touchstart', requestVideoPlay, { once: true });
