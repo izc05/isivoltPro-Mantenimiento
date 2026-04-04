@@ -797,6 +797,78 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
 .home-state-card.progress b{color:var(--green)}
 .home-state-card.delay b{color:#a855f7}
 .home-state-card.closed b{color:var(--red)}
+.home-panel-tip{
+  margin: 6px 2px 10px;
+  font-size: 11px;
+  color: var(--t2);
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.home-panel-tip b{
+  color: var(--acc);
+}
+.home-panel-list{
+  display:grid;
+}
+.home-panel{
+  position:relative;
+  touch-action:none;
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.home-panel::before{
+  content:'⠿ Mantén pulsado para mover';
+  position:absolute;
+  top:8px;
+  right:10px;
+  font-size:9px;
+  color:var(--t3);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.home-panel.is-lifted{
+  box-shadow:0 16px 35px rgba(0,0,0,.32);
+  transform:scale(1.01);
+}
+.home-panel.is-dragging{
+  opacity:.95;
+  transform:none;
+}
+.home-panel-placeholder{
+  border:1px dashed var(--acc);
+  border-radius:var(--r3);
+  margin-bottom:14px;
+  background:var(--acc-s);
+}
+.live-ext-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.live-ext-box{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px;
+  background:linear-gradient(160deg,var(--s2),var(--s3));
+}
+.live-ext-box .lbl{
+  font-size:10px;
+  color:var(--t3);
+  text-transform:uppercase;
+  letter-spacing:.1em;
+}
+.live-ext-box b{
+  display:block;
+  font-size:18px;
+  margin-top:4px;
+  font-family:var(--mono);
+}
+.live-ext-box span{
+  display:block;
+  margin-top:5px;
+  font-size:11px;
+  color:var(--t2);
+}
 
 .mini-timeline{
   display:grid;
@@ -1503,7 +1575,10 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <button class="ub-btn" onclick="goPage('ot')">Ver →</button>
     </div>
 
-    <div class="kpi-grid reveal">
+    <div class="home-panel-tip">🧩 <span><b>Paneles personalizables:</b> mantén pulsado 1 segundo y arrastra para recolocar.</span></div>
+
+    <div class="home-panel-list" id="home-panel-list">
+    <div class="kpi-grid reveal home-panel" data-panel-id="kpi">
       <div class="kpi-card">
         <div class="kpi-n" id="kpi-total">0</div>
         <div class="kpi-l">Total registros</div>
@@ -1522,7 +1597,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card guide-card reveal">
+    <div class="card guide-card reveal home-panel" data-panel-id="guide">
       <div class="guide-top">
         <div>
           <div class="guide-title">Guía inteligente del turno</div>
@@ -1538,7 +1613,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="estado-ot">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Estado OT</div><div class="sec-line"></div></div>
       <div class="home-state-grid">
         <div class="home-state-card open"     data-ico="📋"><b id="home-plan">0</b><span>Planificadas</span></div>
@@ -1548,7 +1623,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="hoy">
       <div class="today-live-head">
         <div class="sec-lbl">Panel hoy · tiempo real</div>
         <div class="today-live-clock" id="home-live-clock">--:--</div>
@@ -1560,7 +1635,23 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="meteo-luz">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Tiempo y precio de luz · tiempo real</div><div class="sec-line"></div></div>
+      <div class="live-ext-grid">
+        <div class="live-ext-box">
+          <div class="lbl">Tiempo actual</div>
+          <b id="home-weather-temp">-- °C</b>
+          <span id="home-weather-desc">Cargando meteorología…</span>
+        </div>
+        <div class="live-ext-box">
+          <div class="lbl">Luz ahora (PVPC)</div>
+          <b id="home-light-price">-- €/kWh</b>
+          <span id="home-light-range">Cargando precio eléctrico…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal home-panel" data-panel-id="acceso">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Acceso rápido</div><div class="sec-line"></div></div>
       <div class="qbar">
         <button class="btn-ghost acc" onclick="goPage('informes')">📝 Nuevo informe</button>
@@ -1570,7 +1661,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card agenda-spotlight reveal" id="home-agenda-spotlight">
+    <div class="card agenda-spotlight reveal home-panel" id="home-agenda-spotlight" data-panel-id="agenda">
       <div class="agenda-head">
         <div>
           <div class="agenda-title">Agenda de hoy</div>
@@ -1586,7 +1677,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="timeline">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Timeline diario · mañana / tarde</div><div class="sec-line"></div></div>
       <div class="mini-timeline" id="home-mini-timeline">
         <div class="timeline-col"><h4>🌅 Mañana</h4><div class="timeline-item"><b>Sin tareas</b><span>Programa OTs con hora para verlas aquí.</span></div></div>
@@ -1594,7 +1685,7 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="semana">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Semana en 20s</div><div class="sec-line"></div></div>
       <div class="week20-top" id="week20-summary">Preparando resumen inteligente…</div>
       <div class="week20-grid">
@@ -1604,18 +1695,19 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="proximas">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Próximas tareas</div><div class="sec-line"></div></div>
       <div class="mini-list" id="home-upcoming">
         <div class="mini-item"><b>Cargando…</b></div>
       </div>
     </div>
 
-    <div class="card reveal">
+    <div class="card reveal home-panel" data-panel-id="recientes">
       <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Últimas incidencias</div><div class="sec-line"></div></div>
       <div class="mini-list" id="home-recent">
         <div class="mini-item"><b>Cargando…</b></div>
       </div>
+    </div>
     </div>
 
   </div>
@@ -2726,6 +2818,10 @@ const App = {
   instOriginalSnapshot: null,
   homeRealtimeTimer: null,
   notifLastKey: '',
+  homeExternalTimer: null,
+  homePanelDrag: null,
+  homeWeatherAt: 0,
+  homeLightAt: 0,
 };
 
 /* ══════════════════════════════════════════════════════════
@@ -2769,6 +2865,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
   bindInstallationEditorEvents();
+  initHomePanelsDnD();
   initDayWatcher();
   initHomeRealtime();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
@@ -2801,11 +2898,128 @@ function initDayWatcher() {
 
 function initHomeRealtime() {
   if (App.homeRealtimeTimer) clearInterval(App.homeRealtimeTimer);
+  if (App.homeExternalTimer) clearInterval(App.homeExternalTimer);
   const tick = () => {
     if (App.page === 'inicio') renderHome();
   };
   tick();
   App.homeRealtimeTimer = window.setInterval(tick, 60 * 1000);
+  updateHomeExternalData(true);
+  App.homeExternalTimer = window.setInterval(() => {
+    if (App.page === 'inicio') updateHomeExternalData();
+  }, 5 * 60 * 1000);
+}
+
+function initHomePanelsDnD() {
+  const container = document.getElementById('home-panel-list');
+  if (!container) return;
+  const panelSelector = '.home-panel[data-panel-id]';
+  const storageKey = 'ivp_home_panel_order';
+  const panels = () => [...container.querySelectorAll(panelSelector)];
+  const saveOrder = () => {
+    const order = panels().map(el => el.dataset.panelId).filter(Boolean);
+    try { localStorage.setItem(storageKey, JSON.stringify(order)); } catch (_) {}
+  };
+  const restoreOrder = () => {
+    let order = null;
+    try { order = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch (_) { order = null; }
+    if (!Array.isArray(order) || !order.length) return;
+    const map = new Map(panels().map(el => [el.dataset.panelId, el]));
+    order.forEach(id => {
+      const el = map.get(id);
+      if (el) container.appendChild(el);
+    });
+  };
+  restoreOrder();
+
+  let holdTimer = null;
+  let dragState = null;
+  const cancelHold = () => {
+    if (!holdTimer) return;
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  };
+
+  const finishDrag = () => {
+    if (!dragState) return;
+    const { panel, placeholder } = dragState;
+    panel.classList.remove('is-dragging', 'is-lifted');
+    Object.assign(panel.style, { position:'', left:'', top:'', width:'', zIndex:'', pointerEvents:'' });
+    if (placeholder.parentNode) placeholder.replaceWith(panel);
+    document.body.style.userSelect = '';
+    dragState = null;
+    saveOrder();
+  };
+
+  const onMove = (ev) => {
+    if (!dragState) return;
+    ev.preventDefault();
+    const { panel, shiftX, shiftY, placeholder } = dragState;
+    panel.style.left = `${ev.clientX - shiftX}px`;
+    panel.style.top = `${ev.clientY - shiftY}px`;
+    const siblings = panels().filter(x => x !== panel);
+    let inserted = false;
+    for (const sib of siblings) {
+      const r = sib.getBoundingClientRect();
+      if (ev.clientY < r.top + r.height / 2) {
+        container.insertBefore(placeholder, sib);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted) container.appendChild(placeholder);
+  };
+
+  const onUp = () => {
+    cancelHold();
+    if (!dragState) return;
+    document.removeEventListener('pointermove', onMove, { passive: false });
+    document.removeEventListener('pointerup', onUp);
+    finishDrag();
+  };
+
+  panels().forEach(panel => {
+    panel.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      if (dragState) return;
+      const startX = ev.clientX;
+      const startY = ev.clientY;
+      holdTimer = setTimeout(() => {
+        const rect = panel.getBoundingClientRect();
+        const placeholder = document.createElement('div');
+        placeholder.className = 'home-panel-placeholder';
+        placeholder.style.height = `${rect.height}px`;
+        panel.classList.add('is-lifted', 'is-dragging');
+        Object.assign(panel.style, {
+          position: 'fixed',
+          left: `${rect.left}px`,
+          top: `${rect.top}px`,
+          width: `${rect.width}px`,
+          zIndex: '900',
+          pointerEvents: 'none',
+        });
+        panel.parentNode.insertBefore(placeholder, panel.nextSibling);
+        dragState = { panel, placeholder, shiftX: startX - rect.left, shiftY: startY - rect.top };
+        document.body.style.userSelect = 'none';
+        document.addEventListener('pointermove', onMove, { passive: false });
+        document.addEventListener('pointerup', onUp);
+      }, 700);
+
+      const cancelIfMoved = (mv) => {
+        const dx = Math.abs(mv.clientX - startX);
+        const dy = Math.abs(mv.clientY - startY);
+        if (dx > 8 || dy > 8) {
+          cancelHold();
+          panel.removeEventListener('pointermove', cancelIfMoved);
+          panel.removeEventListener('pointerup', cancelIfMoved);
+          panel.removeEventListener('pointercancel', cancelIfMoved);
+        }
+      };
+      panel.addEventListener('pointermove', cancelIfMoved);
+      panel.addEventListener('pointerup', cancelIfMoved, { once: true });
+      panel.addEventListener('pointercancel', cancelIfMoved, { once: true });
+    });
+  });
 }
 
 function renderAll() {
@@ -4870,6 +5084,73 @@ function renderStats() {
 /* ══════════════════════════════════════════════════════════
    17. HOME / INICIO
 ══════════════════════════════════════════════════════════ */
+async function updateHomeExternalData(force = false) {
+  const weatherTemp = document.getElementById('home-weather-temp');
+  const weatherDesc = document.getElementById('home-weather-desc');
+  const lightPrice  = document.getElementById('home-light-price');
+  const lightRange  = document.getElementById('home-light-range');
+  if (!weatherTemp || !weatherDesc || !lightPrice || !lightRange) return;
+
+  const now = Date.now();
+  const weatherTTL = 10 * 60 * 1000;
+  const lightTTL = 5 * 60 * 1000;
+
+  if (!force && App.homeWeatherAt && now - App.homeWeatherAt < weatherTTL && App.homeLightAt && now - App.homeLightAt < lightTTL) return;
+
+  if (force) {
+    weatherDesc.textContent = 'Consultando meteorología…';
+    lightRange.textContent = 'Consultando precio eléctrico…';
+  }
+
+  const weatherReq = (!App.homeWeatherAt || now - App.homeWeatherAt >= weatherTTL || force)
+    ? fetch('https://api.open-meteo.com/v1/forecast?latitude=40.4168&longitude=-3.7038&current=temperature_2m,weather_code,wind_speed_10m&timezone=Europe%2FMadrid')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('weather http')))
+      .then(data => {
+        const current = data?.current || {};
+        const t = Number(current.temperature_2m);
+        const wind = Number(current.wind_speed_10m);
+        const code = Number(current.weather_code);
+        const labels = {
+          0: 'Despejado', 1: 'Poco nuboso', 2: 'Nubes dispersas', 3: 'Cubierto',
+          45: 'Niebla', 48: 'Niebla engelante', 51: 'Llovizna ligera', 61: 'Lluvia ligera',
+          63: 'Lluvia moderada', 65: 'Lluvia intensa', 71: 'Nieve ligera', 80: 'Chubascos',
+          95: 'Tormenta'
+        };
+        weatherTemp.textContent = Number.isFinite(t) ? `${t.toFixed(1)} °C` : '-- °C';
+        weatherDesc.textContent = `${labels[code] || 'Estado variable'} · Viento ${Number.isFinite(wind) ? wind.toFixed(0) : '--'} km/h · Madrid`;
+        App.homeWeatherAt = Date.now();
+      })
+      .catch(() => {
+        if (!App.homeWeatherAt || force) {
+          weatherTemp.textContent = '-- °C';
+          weatherDesc.textContent = 'No se pudo actualizar el tiempo ahora.';
+        }
+      })
+    : Promise.resolve();
+
+  const lightReq = (!App.homeLightAt || now - App.homeLightAt >= lightTTL || force)
+    ? fetch('https://api.preciodelaluz.org/v1/prices/now?zone=PCB')
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('light http')))
+      .then(data => {
+        const priceMwh = Number(data?.price);
+        const minMwh = Number(data?.price_day_min);
+        const maxMwh = Number(data?.price_day_max);
+        const nowKwh = priceMwh / 1000;
+        lightPrice.textContent = Number.isFinite(nowKwh) ? `${nowKwh.toFixed(4)} €/kWh` : '-- €/kWh';
+        lightRange.textContent = `Mín ${Number.isFinite(minMwh) ? (minMwh/1000).toFixed(4) : '--'} · Máx ${Number.isFinite(maxMwh) ? (maxMwh/1000).toFixed(4) : '--'} €/kWh`;
+        App.homeLightAt = Date.now();
+      })
+      .catch(() => {
+        if (!App.homeLightAt || force) {
+          lightPrice.textContent = '-- €/kWh';
+          lightRange.textContent = 'No se pudo actualizar el precio PVPC.';
+        }
+      })
+    : Promise.resolve();
+
+  await Promise.allSettled([weatherReq, lightReq]);
+}
+
 function renderHome() {
   const informes = DB.getAll('informes');
   const ots = DB.getAll('ots');
@@ -5063,6 +5344,7 @@ function renderHome() {
       ? `Cerraste ${closedWeek.length} OT esta semana, con ${delayed} en demora. Especialidades más activas: ${top.map(x => x[0]).join(' · ')}.`
       : 'Todavía no hay actividad semanal suficiente; registra OTs para activar el resumen automático.';
   }
+  updateHomeExternalData();
 }
 
 function renderHomeGuide({ informes = [], ots = [] } = {}) {
