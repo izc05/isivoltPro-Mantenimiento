@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" id="meta-description" content="IsiVoltPro: gestión de mantenimiento, informes, OT, agenda técnica e instalaciones en una sola app.">
   <meta name="theme-color" content="#2f7ef5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2942,6 +2943,20 @@ const MOCK_DATA = {
 };
 
 const VALID_PAGES = ['inicio','informes','historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','documentos','stats','ajustes'];
+const SEO_BY_PAGE = {
+  inicio:        { title: 'IsiVoltPro · Inicio', desc: 'Panel operativo de mantenimiento con KPIs, urgencias, agenda y acceso rápido.' },
+  informes:      { title: 'IsiVoltPro · Informes', desc: 'Genera informes de intervención técnicos con fotos, checklist y PDF profesional.' },
+  historial:     { title: 'IsiVoltPro · Historial', desc: 'Consulta historial de intervenciones, filtros por estado y seguimiento de incidencias.' },
+  agenda:        { title: 'IsiVoltPro · Agenda', desc: 'Planificación mensual de OTs y preventivos con estado, prioridad y calendario.' },
+  ot:            { title: 'IsiVoltPro · Órdenes de Trabajo', desc: 'Gestión integral de OTs: crear, editar, cerrar y documentar con evidencias.' },
+  checklists:    { title: 'IsiVoltPro · Checklists', desc: 'Checklists por especialidad para estandarizar inspecciones y mantenimiento.' },
+  reglamentos:   { title: 'IsiVoltPro · Reglamentos', desc: 'Catálogo técnico de reglamentos para mantenimiento e instalaciones.' },
+  rebt:          { title: 'IsiVoltPro · REBT ITC-BT', desc: 'Consulta rápida de las ITC del REBT con buscador especializado.' },
+  instalaciones: { title: 'IsiVoltPro · Instalaciones', desc: 'Fichas de activos técnicos con QR, foto, datos críticos y trazabilidad.' },
+  documentos:    { title: 'IsiVoltPro · Documentos', desc: 'Repositorio documental por instalación: manuales, fotos, enlaces y archivos.' },
+  stats:         { title: 'IsiVoltPro · Estadísticas', desc: 'Analítica de mantenimiento por prioridad, estado y especialidad.' },
+  ajustes:       { title: 'IsiVoltPro · Ajustes', desc: 'Configuración de la app, respaldo de datos y sincronización con GitHub.' },
+};
 
 /* ══════════════════════════════════════════════════════════
    2. ARRANQUE
@@ -3207,6 +3222,7 @@ function goPage(id, opts = {}) {
   };
   if (!cfg.force && App.page === target) return;
   App.page = target;
+  updatePageSEO(target);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + target)?.classList.add('active');
   VALID_PAGES.forEach(n => {
@@ -3252,6 +3268,13 @@ function goPage(id, opts = {}) {
   }
   if (target === 'stats')        renderStats();
   if (target === 'inicio')       renderHome();
+}
+
+function updatePageSEO(page = 'inicio') {
+  const cfg = SEO_BY_PAGE[page] || SEO_BY_PAGE.inicio;
+  document.title = cfg.title;
+  const meta = document.getElementById('meta-description') || document.querySelector('meta[name=\"description\"]');
+  if (meta) meta.setAttribute('content', cfg.desc);
 }
 
 function scrollActiveNavButton() {
@@ -3373,7 +3396,7 @@ function renderFotos() {
   grid.innerHTML = App.fotos.map((f, i) => `
     <div class="foto-card">
       <div class="foto-item">
-        <img src="${f.b64}" alt="foto ${i+1}">
+        <img src="${f.b64}" alt="foto ${i+1}" loading="lazy" decoding="async">
         <button class="foto-rm" onclick="removeFoto(${i})">✕</button>
       </div>
       <textarea class="foto-note" placeholder="Anotación de foto (opcional)" oninput="updateFotoNote(${i},this.value)">${esc(f.note || '')}</textarea>
@@ -3428,7 +3451,7 @@ function renderOTFotos() {
     d.classList.toggle('has', App[key].length > 0);
     g.innerHTML = App[key].map((f, i) => `
       <div class="otf-photo-card">
-        <img src="${f.b64}" alt="foto ${kind}-${i+1}">
+        <img src="${f.b64}" alt="foto ${kind}-${i+1}" loading="lazy" decoding="async">
         <button class="foto-rm" onclick="removeOTFoto('${kind}',${i})">✕</button>
         <textarea placeholder="Anotación (opcional)" oninput="updateOTFotoNote('${kind}',${i},this.value)">${esc(f.note || '')}</textarea>
       </div>
@@ -4375,7 +4398,7 @@ function renderOTList() {
             <span class="ot-media-chip">✅ Después: ${fotosDespues.length}</span>
           </div>
           ${fotosThumb.length ? `<div class="ot-thumb-row">
-            ${fotosThumb.slice(0,4).map(f => `<div class="ot-thumb"><img src="${f.b64}" alt="Miniatura OT"></div>`).join('')}
+            ${fotosThumb.slice(0,4).map(f => `<div class="ot-thumb"><img src="${f.b64}" alt="Miniatura OT" loading="lazy" decoding="async"></div>`).join('')}
             ${fotosThumb.length > 4 ? `<div class="ot-thumb-more">+${fotosThumb.length - 4}</div>` : ''}
           </div>` : ''}
           <div class="lc-detail">
@@ -4940,7 +4963,7 @@ function renderInstallationDocuments() {
   }
   box.innerHTML = docs.map(doc => {
     const preview = doc.type?.startsWith('image/') && doc.preview
-      ? `<div class="doc-preview"><img src="${doc.preview}" alt="${esc(doc.name)}"></div>`
+      ? `<div class="doc-preview"><img src="${doc.preview}" alt="${esc(doc.name)}" loading="lazy" decoding="async"></div>`
       : '';
     const openUrl = doc.url || (doc.type?.startsWith('image/') ? doc.preview : '');
     const canOpen = !!openUrl;
@@ -5078,7 +5101,7 @@ function renderInstalaciones() {
     <div class="list-card clickable" onclick="editInstallation('${inst.id}')">
       <div class="lc-top">
         <div class="inst-thumb">
-          ${inst.foto ? `<img src="${inst.foto}" alt="Foto instalación">` : `<div class="ph">🏷️</div>`}
+          ${inst.foto ? `<img src="${inst.foto}" alt="Foto instalación" loading="lazy" decoding="async">` : `<div class="ph">🏷️</div>`}
         </div>
         <div class="lc-info">
           <div class="lc-title">${esc(inst.nombre || 'Instalación')}</div>
@@ -5831,7 +5854,11 @@ function compressImage(file, maxSize = 1200, quality = .72) {
         const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
         const c = document.createElement('canvas'); c.width = w; c.height = h;
         c.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL('image/jpeg', quality));
+        const q = file.size > 3_000_000 ? Math.max(0.58, quality - 0.12) : quality;
+        let out = '';
+        try { out = c.toDataURL('image/webp', q); } catch {}
+        if (!out || out.startsWith('data:image/png')) out = c.toDataURL('image/jpeg', q);
+        resolve(out);
       };
       img.onerror = reject; img.src = e.target.result;
     };
