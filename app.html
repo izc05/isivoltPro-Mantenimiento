@@ -2620,7 +2620,11 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.6">Los datos se guardan en tu repositorio como JSON. Necesitas un Personal Access Token con permisos <code>contents:write</code>.</div>
       <div class="fgrp"><label>Usuario GitHub</label><input type="text" id="gh-owner" placeholder="tu-usuario"></div>
       <div class="fgrp"><label>Repositorio</label><input type="text" id="gh-repo" placeholder="isivolt-mantenimiento"></div>
-      <div class="fgrp"><label>Personal Access Token</label><input type="password" id="gh-token" placeholder="github_pat_…"></div>
+      <div class="fgrp"><label>Personal Access Token</label><input type="password" id="gh-token" placeholder="github_pat_…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      <div style="font-size:11px;color:var(--t2);margin:-2px 0 10px;line-height:1.5">
+        🔒 Seguridad: usa un token <b>fine-grained</b> con alcance mínimo (solo este repositorio + permiso <code>Contents: Read and write</code>).<br>
+        No compartas capturas, backups o logs que incluyan el token.
+      </div>
       <div class="fgrp"><label>Rama</label><input type="text" id="gh-branch" value="main"></div>
       <button class="btn-primary" id="btn-gh-save" onclick="saveGitHubConfig()">💾 Guardar configuración GitHub</button>
     </div>
@@ -2740,6 +2744,35 @@ const IVPErrorLog = (() => {
   const persist = () => {
     try { localStorage.setItem(ERROR_LOG_KEY, JSON.stringify(entries.slice(-ERROR_LOG_MAX))); } catch (_) {}
   };
+  const redactSecrets = (value) => {
+    if (value == null) return value;
+    const txt = String(value);
+    return txt
+      .replace(/github_pat_[A-Za-z0-9_]+/g, 'github_pat_[REDACTED]')
+      .replace(/ghp_[A-Za-z0-9]+/g, 'ghp_[REDACTED]')
+      .replace(/Bearer\s+[A-Za-z0-9_\-.]+/gi, 'Bearer [REDACTED]');
+  };
+  const sanitizeMeta = (meta = {}) => {
+    if (!meta || typeof meta !== 'object') return {};
+    const out = {};
+    Object.entries(meta).forEach(([key, val]) => {
+      const lk = key.toLowerCase();
+      if (['token', 'authorization', 'auth', 'pat'].includes(lk)) {
+        out[key] = '[REDACTED]';
+      } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+        out[key] = sanitizeMeta(val);
+      } else if (Array.isArray(val)) {
+        out[key] = val.map(item => (typeof item === 'object' ? sanitizeMeta(item) : redactSecrets(item)));
+      } else {
+        out[key] = redactSecrets(val);
+      }
+    });
+    return out;
+  };
+  const normalizeError = (err) => ({
+    message: redactSecrets(err?.message || String(err || 'unknown_error')),
+    stack: typeof err?.stack === 'string' ? redactSecrets(err.stack).slice(0, 1500) : '',
+    name: redactSecrets(err?.name || 'Error'),
   const normalizeError = (err) => ({
     message: err?.message || String(err || 'unknown_error'),
     stack: typeof err?.stack === 'string' ? err.stack.slice(0, 1500) : '',
@@ -2751,6 +2784,7 @@ const IVPErrorLog = (() => {
       at: new Date().toISOString(),
       type,
       error: normalizeError(err),
+      meta: sanitizeMeta(meta),
       meta,
       page: location.pathname,
       ua: navigator.userAgent,
@@ -2883,6 +2917,9 @@ const DB = (() => {
     });
     if (!res.ok && res.status !== 404) {
       const body = await res.text();
+      const err = new Error(`GitHub API ${res.status}`);
+      err.status = res.status;
+      ERR?.log('sync.github_http_error', err, { endpoint, status: res.status, bodyPreview: body.slice(0, 200) });
       const err = new Error(`GitHub API ${res.status}: ${body}`);
       err.status = res.status;
       ERR?.log('sync.github_http_error', err, { endpoint, status: res.status });
