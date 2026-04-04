@@ -803,21 +803,30 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   color: var(--t2);
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:7px;
+  flex-wrap:wrap;
 }
 .home-panel-tip b{
   color: var(--acc);
+}
+.home-panel-actions{
+  display:flex;
+  gap:8px;
+}
+.home-panel-actions .btn-ghost{
+  padding:6px 10px;
 }
 .home-panel-list{
   display:grid;
 }
 .home-panel{
   position:relative;
-  touch-action:none;
+  touch-action:manipulation;
   transition: box-shadow .18s ease, transform .18s ease;
 }
 .home-panel::before{
-  content:'⠿ Mantén pulsado para mover';
+  content:'⠿ Arrastra para mover';
   position:absolute;
   top:8px;
   right:10px;
@@ -825,6 +834,14 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   color:var(--t3);
   letter-spacing:.06em;
   text-transform:uppercase;
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.home-panel-list.editing .home-panel{
+  touch-action:none;
+}
+.home-panel-list.editing .home-panel::before{
+  opacity:1;
 }
 .home-panel.is-lifted{
   box-shadow:0 16px 35px rgba(0,0,0,.32);
@@ -857,6 +874,16 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   text-transform:uppercase;
   letter-spacing:.1em;
 }
+.weather-now-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:3px;
+}
+.weather-now-loc{
+  font-size:10px;
+  color:var(--t2);
+}
 .live-ext-box b{
   display:block;
   font-size:18px;
@@ -868,6 +895,10 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   margin-top:5px;
   font-size:11px;
   color:var(--t2);
+}
+.weather-now-icon{
+  font-size:20px;
+  line-height:1;
 }
 
 .mini-timeline{
@@ -1575,7 +1606,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <button class="ub-btn" onclick="goPage('ot')">Ver →</button>
     </div>
 
-    <div class="home-panel-tip">🧩 <span><b>Paneles personalizables:</b> mantén pulsado 1 segundo y arrastra para recolocar.</span></div>
+    <div class="home-panel-tip">
+      <span>🧩 <b>Paneles personalizables:</b> activa el modo mover para recolocar sin bloquear la pantalla.</span>
+      <div class="home-panel-actions">
+        <button class="btn-ghost sm" id="home-panels-edit-btn">↕️ Mover paneles</button>
+        <button class="btn-ghost acc sm" id="home-panels-save-btn" style="display:none;">✅ Confirmar orden</button>
+      </div>
+    </div>
 
     <div class="home-panel-list" id="home-panel-list">
     <div class="kpi-grid reveal home-panel" data-panel-id="kpi">
@@ -1640,6 +1677,13 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
       <div class="live-ext-grid">
         <div class="live-ext-box">
           <div class="lbl">Tiempo actual</div>
+          <div class="weather-now-head">
+            <span class="weather-now-loc" id="home-weather-location">Madrid</span>
+            <div>
+              <span class="weather-now-icon" id="home-weather-icon">⛅</span>
+              <button class="btn-ghost sm" id="home-weather-location-btn">📍 Ubicación</button>
+            </div>
+          </div>
           <b id="home-weather-temp">-- °C</b>
           <span id="home-weather-desc">Cargando meteorología…</span>
         </div>
@@ -2821,9 +2865,13 @@ const App = {
   notifLastKey: '',
   homeExternalTimer: null,
   homePanelDrag: null,
+  homePanelEdit: false,
   homeWeatherAt: 0,
   homeLightAt: 0,
+  homeWeatherLocation: null,
 };
+
+const DEFAULT_WEATHER_LOCATION = { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 };
 
 const VALID_PAGES = ['inicio','informes','historial','agenda','ot','checklists','reglamentos','rebt','instalaciones','documentos','stats','ajustes'];
 
@@ -2845,6 +2893,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   DB.loadGitHubConfig();
   await DB.init();
+  loadHomeWeatherLocation();
   applyTheme();
   applyAccent(App.accent, false);
   initDate();
@@ -2869,6 +2918,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('inst-qr-text')?.addEventListener('input', () => generateInstallationQR(false));
   bindInstallationEditorEvents();
   initHomePanelsDnD();
+  document.getElementById('home-weather-location-btn')?.addEventListener('click', promptHomeWeatherLocation);
   initDayWatcher();
   initHomeRealtime();
   document.getElementById('f-prioridad')?.addEventListener('change', updatePrioIndicator);
@@ -2914,8 +2964,33 @@ function initHomeRealtime() {
   }, 5 * 60 * 1000);
 }
 
+function getHomeWeatherLocation() {
+  return App.homeWeatherLocation || DEFAULT_WEATHER_LOCATION;
+}
+
+function loadHomeWeatherLocation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ivp_home_weather_location') || 'null');
+    if (saved && Number.isFinite(Number(saved.latitude)) && Number.isFinite(Number(saved.longitude))) {
+      App.homeWeatherLocation = {
+        name: String(saved.name || DEFAULT_WEATHER_LOCATION.name),
+        latitude: Number(saved.latitude),
+        longitude: Number(saved.longitude),
+      };
+      return;
+    }
+  } catch (_) {}
+  App.homeWeatherLocation = { ...DEFAULT_WEATHER_LOCATION };
+}
+
+function saveHomeWeatherLocation() {
+  try { localStorage.setItem('ivp_home_weather_location', JSON.stringify(getHomeWeatherLocation())); } catch (_) {}
+}
+
 function initHomePanelsDnD() {
   const container = document.getElementById('home-panel-list');
+  const editBtn = document.getElementById('home-panels-edit-btn');
+  const saveBtn = document.getElementById('home-panels-save-btn');
   if (!container) return;
   const panelSelector = '.home-panel[data-panel-id]';
   const storageKey = 'ivp_home_panel_order';
@@ -2936,12 +3011,12 @@ function initHomePanelsDnD() {
   };
   restoreOrder();
 
-  let holdTimer = null;
   let dragState = null;
-  const cancelHold = () => {
-    if (!holdTimer) return;
-    clearTimeout(holdTimer);
-    holdTimer = null;
+  const setEditMode = (enabled) => {
+    App.homePanelEdit = !!enabled;
+    container.classList.toggle('editing', App.homePanelEdit);
+    if (editBtn) editBtn.textContent = App.homePanelEdit ? '✖️ Cancelar mover' : '↕️ Mover paneles';
+    if (saveBtn) saveBtn.style.display = App.homePanelEdit ? '' : 'none';
   };
 
   const finishDrag = () => {
@@ -2952,7 +3027,6 @@ function initHomePanelsDnD() {
     if (placeholder.parentNode) placeholder.replaceWith(panel);
     document.body.style.userSelect = '';
     dragState = null;
-    saveOrder();
   };
 
   const onMove = (ev) => {
@@ -2975,7 +3049,6 @@ function initHomePanelsDnD() {
   };
 
   const onUp = () => {
-    cancelHold();
     if (!dragState) return;
     document.removeEventListener('pointermove', onMove, { passive: false });
     document.removeEventListener('pointerup', onUp);
@@ -2984,47 +3057,45 @@ function initHomePanelsDnD() {
 
   panels().forEach(panel => {
     panel.addEventListener('pointerdown', (ev) => {
-      if (ev.button !== 0) return;
-      if (dragState) return;
-      const startX = ev.clientX;
-      const startY = ev.clientY;
-      holdTimer = setTimeout(() => {
-        const rect = panel.getBoundingClientRect();
-        const placeholder = document.createElement('div');
-        placeholder.className = 'home-panel-placeholder';
-        placeholder.style.height = `${rect.height}px`;
-        panel.classList.add('is-lifted', 'is-dragging');
-        Object.assign(panel.style, {
-          position: 'fixed',
-          left: `${rect.left}px`,
-          top: `${rect.top}px`,
-          width: `${rect.width}px`,
-          zIndex: '900',
-          pointerEvents: 'none',
-        });
-        panel.parentNode.insertBefore(placeholder, panel.nextSibling);
-        dragState = { panel, placeholder, shiftX: startX - rect.left, shiftY: startY - rect.top };
-        document.body.style.userSelect = 'none';
-        document.addEventListener('pointermove', onMove, { passive: false });
-        document.addEventListener('pointerup', onUp);
-      }, 700);
-
-      const cancelIfMoved = (mv) => {
-        const dx = Math.abs(mv.clientX - startX);
-        const dy = Math.abs(mv.clientY - startY);
-        if (dx > 8 || dy > 8) {
-          cancelHold();
-          panel.removeEventListener('pointermove', cancelIfMoved);
-          panel.removeEventListener('pointerup', cancelIfMoved);
-          panel.removeEventListener('pointercancel', cancelIfMoved);
-        }
-      };
-      panel.addEventListener('pointermove', cancelIfMoved);
-      panel.addEventListener('pointerup', cancelIfMoved, { once: true });
-      panel.addEventListener('pointercancel', cancelIfMoved, { once: true });
+      if (ev.button !== 0 || !App.homePanelEdit || dragState) return;
+      const rect = panel.getBoundingClientRect();
+      const placeholder = document.createElement('div');
+      placeholder.className = 'home-panel-placeholder';
+      placeholder.style.height = `${rect.height}px`;
+      panel.classList.add('is-lifted', 'is-dragging');
+      Object.assign(panel.style, {
+        position: 'fixed',
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        zIndex: '900',
+        pointerEvents: 'none',
+      });
+      panel.parentNode.insertBefore(placeholder, panel.nextSibling);
+      dragState = { panel, placeholder, shiftX: ev.clientX - rect.left, shiftY: ev.clientY - rect.top };
+      document.body.style.userSelect = 'none';
+      document.addEventListener('pointermove', onMove, { passive: false });
+      document.addEventListener('pointerup', onUp);
     });
   });
+
+  editBtn?.addEventListener('click', () => {
+    if (App.homePanelEdit) {
+      finishDrag();
+      setEditMode(false);
+      return;
+    }
+    setEditMode(true);
+  });
+
+  saveBtn?.addEventListener('click', () => {
+    finishDrag();
+    saveOrder();
+    setEditMode(false);
+    toast('✅ Orden de paneles guardado');
+  });
 }
+
 
 function renderAll() {
   renderHome();
@@ -5113,9 +5184,13 @@ function renderStats() {
 async function updateHomeExternalData(force = false) {
   const weatherTemp = document.getElementById('home-weather-temp');
   const weatherDesc = document.getElementById('home-weather-desc');
+  const weatherLoc  = document.getElementById('home-weather-location');
+  const weatherIcon = document.getElementById('home-weather-icon');
   const lightPrice  = document.getElementById('home-light-price');
   const lightRange  = document.getElementById('home-light-range');
   if (!weatherTemp || !weatherDesc || !lightPrice || !lightRange) return;
+  const loc = getHomeWeatherLocation();
+  if (weatherLoc) weatherLoc.textContent = loc.name;
 
   const now = Date.now();
   const weatherTTL = 10 * 60 * 1000;
@@ -5125,11 +5200,12 @@ async function updateHomeExternalData(force = false) {
 
   if (force) {
     weatherDesc.textContent = 'Consultando meteorología…';
+    if (weatherIcon) weatherIcon.textContent = '⏳';
     lightRange.textContent = 'Consultando precio eléctrico…';
   }
 
   const weatherReq = (!App.homeWeatherAt || now - App.homeWeatherAt >= weatherTTL || force)
-    ? fetch('https://api.open-meteo.com/v1/forecast?latitude=40.4168&longitude=-3.7038&current=temperature_2m,weather_code,wind_speed_10m&timezone=Europe%2FMadrid')
+    ? fetch(`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(loc.latitude)}&longitude=${encodeURIComponent(loc.longitude)}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`)
       .then(r => r.ok ? r.json() : Promise.reject(new Error('weather http')))
       .then(data => {
         const current = data?.current || {};
@@ -5143,12 +5219,14 @@ async function updateHomeExternalData(force = false) {
           95: 'Tormenta'
         };
         weatherTemp.textContent = Number.isFinite(t) ? `${t.toFixed(1)} °C` : '-- °C';
-        weatherDesc.textContent = `${labels[code] || 'Estado variable'} · Viento ${Number.isFinite(wind) ? wind.toFixed(0) : '--'} km/h · Madrid`;
+        weatherDesc.textContent = `${labels[code] || 'Estado variable'} · Viento ${Number.isFinite(wind) ? wind.toFixed(0) : '--'} km/h`;
+        if (weatherIcon) weatherIcon.textContent = weatherCodeToIcon(code);
         App.homeWeatherAt = Date.now();
       })
       .catch(() => {
         if (!App.homeWeatherAt || force) {
           weatherTemp.textContent = '-- °C';
+          if (weatherIcon) weatherIcon.textContent = '⚠️';
           weatherDesc.textContent = 'No se pudo actualizar el tiempo ahora.';
         }
       })
@@ -5175,6 +5253,48 @@ async function updateHomeExternalData(force = false) {
     : Promise.resolve();
 
   await Promise.allSettled([weatherReq, lightReq]);
+}
+
+function weatherCodeToIcon(code) {
+  if (code === 0) return '☀️';
+  if (code === 1 || code === 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if ([51,53,55,61,63,65,80,81,82].includes(code)) return '🌧️';
+  if ([71,73,75,77,85,86].includes(code)) return '🌨️';
+  if ([95,96,99].includes(code)) return '⛈️';
+  return '⛅';
+}
+
+async function promptHomeWeatherLocation() {
+  const current = getHomeWeatherLocation();
+  const q = window.prompt('Indica ciudad o localidad para el módulo de clima:', current.name);
+  if (q === null) return;
+  const query = String(q || '').trim();
+  if (!query) {
+    toast('⚠️ Escribe una ubicación válida');
+    return;
+  }
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=es&format=json`);
+    const data = await (r.ok ? r.json() : Promise.reject(new Error('geo')));
+    const result = data?.results?.[0];
+    if (!result) {
+      toast('⚠️ No se encontró esa ubicación');
+      return;
+    }
+    App.homeWeatherLocation = {
+      name: result.name || query,
+      latitude: Number(result.latitude),
+      longitude: Number(result.longitude),
+    };
+    saveHomeWeatherLocation();
+    App.homeWeatherAt = 0;
+    updateHomeExternalData(true);
+    toast(`📍 Ubicación meteorológica: ${App.homeWeatherLocation.name}`);
+  } catch (_) {
+    toast('⚠️ No se pudo actualizar la ubicación');
+  }
 }
 
 function renderHome() {
