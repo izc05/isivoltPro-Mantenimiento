@@ -2895,9 +2895,12 @@ html[data-theme="light"] #page-inicio .home-state-card{
         </div>
         <div class="btn-bar" style="margin:22px 0 0">
           <button class="btn-ghost" onclick="renderChecklistHub()">🔄 Recargar</button>
+          <button class="btn-ghost" onclick="toggleChecklistHubSelection(true)">☑️ Marcar todo</button>
+          <button class="btn-ghost" onclick="toggleChecklistHubSelection(false)">⬜ Limpiar</button>
           <button class="btn-ghost acc" onclick="useChecklistInReport()">📝 Usar en informe</button>
         </div>
       </div>
+      <div id="chk-hub-meta" style="font-size:11px;color:var(--t2);margin:6px 0 10px">0 seleccionados</div>
       <div id="chk-hub-list"></div>
     </div>
   </div>
@@ -3701,6 +3704,7 @@ const App = {
   homeWeatherAt: 0,
   homeLightAt: 0,
   homeWeatherLocation: null,
+  checklistState: {},
 };
 
 const DEFAULT_WEATHER_LOCATION = { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 };
@@ -4417,20 +4421,50 @@ function renderChecklistHub() {
   const items = CHECKLISTS[specialty] || CHECKLISTS.Electricidad;
   const wrap = document.getElementById('chk-hub-list');
   if (!wrap) return;
+  const selected = new Set(App.checklistState[specialty] || []);
   wrap.innerHTML = items.map((txt, i) => `
     <label class="chk-item">
-      <input type="checkbox" data-hub="${i}">
+      <input type="checkbox" data-hub="${i}" ${selected.has(i) ? 'checked' : ''}>
       <div><strong>${esc(specialty)}</strong><br>${esc(txt)}</div>
     </label>`).join('');
+  wrap.querySelectorAll('input[data-hub]').forEach(input => {
+    input.addEventListener('change', () => syncChecklistStateFromHub(specialty));
+  });
+  updateChecklistHubMeta(specialty);
+}
+function updateChecklistHubMeta(specialty = '') {
+  const meta = document.getElementById('chk-hub-meta');
+  if (!meta) return;
+  const esp = specialty || (document.getElementById('chk-specialty')?.value || 'Electricidad');
+  const total = (CHECKLISTS[esp] || CHECKLISTS.Electricidad).length;
+  const selected = (App.checklistState[esp] || []).length;
+  meta.textContent = `${selected}/${total} seleccionados para ${esp}`;
+}
+function syncChecklistStateFromHub(specialty = '') {
+  const esp = specialty || (document.getElementById('chk-specialty')?.value || 'Electricidad');
+  const selected = [...document.querySelectorAll('#chk-hub-list input[data-hub]:checked')]
+    .map(input => Number(input.dataset.hub))
+    .filter(Number.isFinite);
+  App.checklistState[esp] = selected;
+  updateChecklistHubMeta(esp);
+}
+function toggleChecklistHubSelection(selectAll = true) {
+  const esp = document.getElementById('chk-specialty')?.value || 'Electricidad';
+  const list = CHECKLISTS[esp] || CHECKLISTS.Electricidad;
+  App.checklistState[esp] = selectAll ? list.map((_, i) => i) : [];
+  renderChecklistHub();
 }
 
 function useChecklistInReport() {
   const specialty = document.getElementById('chk-specialty')?.value || 'Electricidad';
+  syncChecklistStateFromHub(specialty);
   const select = document.getElementById('f-esp');
   if (select) select.value = specialty;
   loadChecklistBySpecialty();
+  applyChecklistStateToReport(specialty);
   goPage('informes');
-  toast('Checklist aplicada al informe.');
+  const count = (App.checklistState[specialty] || []).length;
+  toast(`Checklist aplicada al informe (${count} ítems marcados).`);
 }
 
 function renderRegulations() {
@@ -4475,14 +4509,40 @@ function loadChecklistBySpecialty() {
   const items = CHECKLISTS[esp] || CHECKLISTS.Electricidad;
   const list  = document.getElementById('chk-list');
   if (!list) return;
+  const selected = new Set(App.checklistState[esp] || []);
   list.innerHTML = items.map((txt, i) => `
     <label class="chk-item">
-      <input type="checkbox" data-i="${i}">
+      <input type="checkbox" data-i="${i}" ${selected.has(i) ? 'checked' : ''}>
       <div><strong>${esc(esp)}</strong><br>${esc(txt)}</div>
     </label>`).join('');
+  list.querySelectorAll('input[data-i]').forEach(input => {
+    input.addEventListener('change', () => syncChecklistStateFromReport(esp));
+  });
 }
-function clearChecklist() { const l = document.getElementById('chk-list'); if (l) l.innerHTML = ''; }
+function syncChecklistStateFromReport(esp = '') {
+  const specialty = esp || (document.getElementById('f-esp')?.value || 'Electricidad');
+  const selected = [...document.querySelectorAll('#chk-list input[data-i]:checked')]
+    .map(input => Number(input.dataset.i))
+    .filter(Number.isFinite);
+  App.checklistState[specialty] = selected;
+}
+function applyChecklistStateToReport(esp = '') {
+  const specialty = esp || (document.getElementById('f-esp')?.value || 'Electricidad');
+  const selected = new Set(App.checklistState[specialty] || []);
+  document.querySelectorAll('#chk-list input[data-i]').forEach(input => {
+    const idx = Number(input.dataset.i);
+    input.checked = selected.has(idx);
+  });
+}
+function clearChecklist() {
+  const specialty = document.getElementById('f-esp')?.value || 'Electricidad';
+  App.checklistState[specialty] = [];
+  const l = document.getElementById('chk-list');
+  if (!l) return;
+  l.querySelectorAll('input[data-i]').forEach(input => { input.checked = false; });
+}
 function checklistSummary() {
+  syncChecklistStateFromReport();
   const ch  = document.querySelectorAll('#chk-list input:checked').length;
   const tot = document.querySelectorAll('#chk-list input').length;
   return `${ch}/${tot} checks completados`;
