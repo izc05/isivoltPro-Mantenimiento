@@ -2710,6 +2710,19 @@ html[data-theme="light"] #page-inicio .home-state-card{
       </div>
     </div>
     <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Google Calendar (opcional)</div><div class="sec-line"></div></div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.6">
+        Puedes sincronizar eventos de un calendario de Google para verlos junto a tus OT en esta pestaña.
+      </div>
+      <div class="fgrp"><label>ID del calendario</label><input type="text" id="gcal-calendar-id" placeholder="tu_calendario@group.calendar.google.com"></div>
+      <div class="fgrp"><label>API Key de Google (solo lectura)</label><input type="password" id="gcal-api-key" placeholder="AIza..."></div>
+      <div class="btn-bar">
+        <button class="btn-ghost" id="btn-gcal-test" onclick="syncGoogleCalendarEvents(true)">🔄 Probar / sincronizar ahora</button>
+        <button class="btn-primary" id="btn-gcal-save" onclick="saveGoogleCalendarConfig()">💾 Guardar Google Calendar</button>
+      </div>
+      <div id="gcal-meta" style="margin-top:8px;font-size:11px;color:var(--t3)">Google Calendar no configurado.</div>
+    </div>
+    <div class="card reveal">
       <div class="cal-shell">
         <div class="cal-nav">
           <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
@@ -2725,6 +2738,7 @@ html[data-theme="light"] #page-inicio .home-state-card{
           <span><span class="pip a" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Alta</span>
           <span><span class="pip m" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Media</span>
           <span><span class="pip ok" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Cerrada</span>
+          <span><span class="pip m" style="display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.35)"></span>Google Calendar</span>
         </div>
       </div>
     </div>
@@ -3178,6 +3192,7 @@ html[data-theme="light"] #page-inicio .home-state-card{
       <div style="font-size:14px;font-weight:800;margin-bottom:6px">Opciones</div>
       <div class="btn-bar">
         <button class="btn-ghost" onclick="toggleTheme()">🌓 Tema claro/oscuro</button>
+        <button class="btn-ghost acc" onclick="seedDemoDataset()">🧪 Cargar 5 instalaciones demo</button>
         <button class="btn-ghost" onclick="limpiarForm();goPage('informes')">🧹 Limpiar formulario</button>
         <button class="btn-ghost red" onclick="logout()">🚪 Cerrar sesión</button>
       </div>
@@ -3682,6 +3697,8 @@ const App = {
 
 const DEFAULT_WEATHER_LOCATION = { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 };
 const AI_CONFIG_KEY = 'ivp_ai_config';
+const GCAL_CONFIG_KEY = 'ivp_gcal_config';
+const GCAL_EVENTS_KEY = 'ivp_gcal_events';
 const AI_DEFAULT_CONFIG = {
   endpoint: '',
   model: '',
@@ -3748,6 +3765,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   DB.loadGitHubConfig();
   loadAIConfigToForm();
+  loadGoogleCalendarConfigToForm();
   await DB.init();
   loadHomeWeatherLocation();
   applyTheme();
@@ -4068,6 +4086,7 @@ function goPage(id, opts = {}) {
     const sel = document.getElementById('f-instalacion');
     const otInst = document.getElementById('ot-inst-linked');
     if (otInst) otInst.textContent = sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].textContent.trim() : '—';
+    syncGoogleCalendarEvents(false);
     renderCalGrid();
   }
   if (target === 'ot')           {
@@ -5045,6 +5064,11 @@ function animateOTCompletion(id) {
 }
 function matchesAgendaQuickFilter(ot, filter = 'all') {
   if (!ot) return false;
+  if (ot.source === 'gcal') {
+    if (filter === 'all') return true;
+    if (filter === 'sinzona') return !String(ot.zona || '').trim();
+    return false;
+  }
   const pr = (ot.prioridad || '').toUpperCase();
   const estado = ot.estado || 'Planificada';
   if (estado === 'Cerrada') return false;
@@ -5061,6 +5085,109 @@ function setAgendaQuickFilter(filter = 'all', btn = null) {
   });
   if (btn) btn.classList.add('active');
   renderCalGrid();
+}
+function getGoogleCalendarEvents() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GCAL_EVENTS_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch (_) {
+    return [];
+  }
+}
+function getAgendaItems() {
+  const ots = DB.getAll('ots').map(o => ({ ...o, source: 'ot' }));
+  const gcal = getGoogleCalendarEvents().map(e => ({ ...e, source: 'gcal' }));
+  return [...ots, ...gcal];
+}
+function getAgendaItemsByDate(dateKey = '') {
+  return getAgendaItems().filter(t => (t.fecha || t.planfecha || '') === dateKey);
+}
+function getGoogleCalendarConfig() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GCAL_CONFIG_KEY) || '{}');
+    return {
+      calendarId: String(raw.calendarId || '').trim(),
+      apiKey: String(raw.apiKey || '').trim(),
+      lastSyncAt: raw.lastSyncAt || '',
+    };
+  } catch (_) {
+    return { calendarId: '', apiKey: '', lastSyncAt: '' };
+  }
+}
+function setGCalMeta(text = '') {
+  const el = document.getElementById('gcal-meta');
+  if (el) el.textContent = text;
+}
+function loadGoogleCalendarConfigToForm() {
+  const cfg = getGoogleCalendarConfig();
+  setValue('gcal-calendar-id', cfg.calendarId || '');
+  setValue('gcal-api-key', cfg.apiKey || '');
+  const evCount = getGoogleCalendarEvents().length;
+  if (cfg.calendarId && cfg.apiKey) {
+    const syncText = cfg.lastSyncAt ? ` Última sincronización: ${new Date(cfg.lastSyncAt).toLocaleString('es-ES')}.` : '';
+    setGCalMeta(`Google Calendar configurado · ${evCount} evento(s) locales.${syncText}`);
+  } else {
+    setGCalMeta('Google Calendar no configurado.');
+  }
+}
+function saveGoogleCalendarConfig() {
+  ['gcal-calendar-id','gcal-api-key'].forEach(clearFieldError);
+  const calendarId = document.getElementById('gcal-calendar-id')?.value?.trim() || '';
+  const apiKey = document.getElementById('gcal-api-key')?.value?.trim() || '';
+  if (!calendarId || !apiKey) {
+    if (!calendarId) setFieldError('gcal-calendar-id', 'Falta el ID del calendario.');
+    if (!apiKey) setFieldError('gcal-api-key', 'Falta la API key.');
+    toast('Completa ID del calendario y API key.');
+    return;
+  }
+  const prev = getGoogleCalendarConfig();
+  localStorage.setItem(GCAL_CONFIG_KEY, JSON.stringify({ ...prev, calendarId, apiKey }));
+  setGCalMeta('Configuración guardada. Pulsa sincronizar para cargar eventos.');
+  toast('Google Calendar configurado.');
+}
+function parseGoogleEventToAgenda(event = {}) {
+  const startDate = event?.start?.dateTime || event?.start?.date || '';
+  const endDate = event?.end?.dateTime || event?.end?.date || startDate;
+  const hasTime = String(startDate).includes('T');
+  const fecha = String(startDate).slice(0, 10);
+  const hora = hasTime ? String(startDate).slice(11, 16) : '';
+  return {
+    id: `gcal-${event.id || Math.random().toString(36).slice(2, 8)}`,
+    title: event.summary || 'Evento Google Calendar',
+    fecha,
+    hora,
+    planfecha: fecha,
+    prioridad: 'MEDIA',
+    estado: 'Programada',
+    tipo: 'Google',
+    zona: event.location || 'Google Calendar',
+    nota: event.description || '',
+    endDate,
+  };
+}
+async function syncGoogleCalendarEvents(withToast = false) {
+  setButtonLoading('btn-gcal-test', true, '⏳ Sincronizando calendario…');
+  try {
+    const cfg = getGoogleCalendarConfig();
+    if (!cfg.calendarId || !cfg.apiKey) throw new Error('Configura primero ID de calendario y API key.');
+    const timeMin = new Date(App.calYear, App.calMonth, 1).toISOString();
+    const timeMax = new Date(App.calYear, App.calMonth + 1, 1).toISOString();
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cfg.calendarId)}/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&maxResults=250&key=${encodeURIComponent(cfg.apiKey)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Google Calendar HTTP ${res.status}`);
+    const data = await res.json();
+    const parsed = Array.isArray(data.items) ? data.items.map(parseGoogleEventToAgenda).filter(e => !!e.fecha) : [];
+    localStorage.setItem(GCAL_EVENTS_KEY, JSON.stringify(parsed));
+    localStorage.setItem(GCAL_CONFIG_KEY, JSON.stringify({ ...cfg, lastSyncAt: new Date().toISOString() }));
+    loadGoogleCalendarConfigToForm();
+    renderCalGrid();
+    if (withToast) toast(`Google Calendar sincronizado: ${parsed.length} evento(s) cargados.`);
+  } catch (err) {
+    IVPErrorLog.log('gcal.sync_failed', err);
+    if (withToast) toast(`No se pudo sincronizar Google Calendar: ${err.message}`);
+  } finally {
+    setButtonLoading('btn-gcal-test', false);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -5083,9 +5210,9 @@ function renderCalGrid() {
   const today = new Date();
   const todayKey = fmtDate(today);
 
-  // Mapa día → OTs
-  const ots = DB.getAll('ots');
-  const filtered = ots.filter(o => matchesAgendaQuickFilter(o, App.agendaQuickFilter));
+  // Mapa día → Agenda (OT + Google Calendar)
+  const agendaItems = getAgendaItems();
+  const filtered = agendaItems.filter(o => matchesAgendaQuickFilter(o, App.agendaQuickFilter));
   const dayMap = {};
   const mesStr = `${App.calYear}-${String(App.calMonth+1).padStart(2,'0')}`;
   filtered.forEach(o => {
@@ -5137,7 +5264,7 @@ function renderCalGrid() {
     summary.innerHTML = next.length
       ? next.map(o => {
         const dateKey = o.fecha || o.planfecha || '';
-        return `<div class="mini-item" onclick="showDayTasks('${dateKey}', DB.getAll('ots').filter(t => (t.fecha || t.planfecha || '') === '${dateKey}'))"><b>${esc(o.title || 'OT')}</b><span>${esc(dateKey || 'Sin fecha')} · ${esc(formatOTHour(o))} · ${esc(o.zona || 'Sin zona')}</span></div>`;
+        return `<div class="mini-item" onclick="showDayTasks('${dateKey}', getAgendaItemsByDate('${dateKey}'))"><b>${esc(o.title || 'OT')}</b><span>${esc(dateKey || 'Sin fecha')} · ${esc(formatOTHour(o))} · ${esc(o.zona || 'Sin zona')}</span></div>`;
       }).join('')
       : `<div class="mini-item"><b>Sin coincidencias</b><span>No hay OTs abiertas para este filtro rápido.</span></div>`;
   }
@@ -5147,6 +5274,7 @@ function changeMonth(dir) {
   App.calMonth += dir;
   if (App.calMonth > 11) { App.calMonth = 0; App.calYear++; }
   if (App.calMonth < 0)  { App.calMonth = 11; App.calYear--; }
+  syncGoogleCalendarEvents(false);
   renderCalGrid(); renderOTList();
 }
 
@@ -5169,7 +5297,7 @@ function showDayTasks(dateKey, tasks) {
         <span class="agenda-prio-dot" style="background:${color}"></span>
         <div class="agenda-task-title">${esc(t.title || 'OT sin título')}</div>
       </div>
-      <div class="agenda-task-meta">${esc(t.estado || 'Planificada')} · ${esc(pr)} · ${esc(t.tipo || 'OT')}</div>
+      <div class="agenda-task-meta">${esc(t.estado || 'Planificada')} · ${esc(pr)} · ${esc(t.tipo || 'OT')}${t.source === 'gcal' ? ' · Google Calendar' : ''}</div>
       <div class="agenda-task-meta">${esc(formatOTHour(t))} · ${esc(t.zona || 'Sin zona')}${t.instalacionNombre ? ` · ${esc(t.instalacionNombre)}` : ''}</div>
     </article>`;
   }).join('') : `<div class="agenda-task"><div class="agenda-task-title">Sin tareas en esta fecha</div></div>`;
@@ -6803,6 +6931,148 @@ function loadGHConfigToForm() {
   const s = DB.status();
   setValue('gh-owner', s.owner || '');
   setValue('gh-repo',  s.repo  || '');
+}
+function addDaysISO(delta = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + delta);
+  return fmtDate(d);
+}
+async function seedDemoDataset() {
+  const ok = confirm('Se crearán 5 instalaciones demo completas (con OTs, informes y documentos vinculados). ¿Continuar?');
+  if (!ok) return;
+  const base = Date.now();
+  const installs = [
+    {
+      id: `demo-inst-${base}-1`,
+      nombre: 'Hospital Central · UCI Clima',
+      codigo: 'HC-UCI-CL-01',
+      direccion: 'Av. Salud 120, Madrid',
+      telefono: '+34 910 101 201',
+      email: 'mantenimiento.uci@hospital-central.es',
+      zona: 'UCI · Planta 2',
+      tecnico: 'Carlos Ruiz',
+      especialidad: 'Climatización',
+      elemento: 'UTA + fan coils críticos',
+      potencia: '75 kW',
+      tension: '400V',
+      datosTec: 'Filtro HEPA H14, caudal nominal 14.500 m³/h',
+      documentos: [{ id:`demo-doc-${base}-1`, title:'Plan preventivo UCI', kind:'link', url:'https://example.com/uci-plan', createdAt:new Date().toISOString() }],
+    },
+    {
+      id: `demo-inst-${base}-2`,
+      nombre: 'Centro Logístico Norte · Cuadro General',
+      codigo: 'CLN-ELE-01',
+      direccion: 'Calle Industria 44, Zaragoza',
+      telefono: '+34 976 555 220',
+      email: 'electrico@cln.es',
+      zona: 'Nave A · Sala eléctrica',
+      tecnico: 'Lucía Martín',
+      especialidad: 'Electricidad',
+      elemento: 'Cuadro general BT + líneas auxiliares',
+      potencia: '160 kVA',
+      tension: '400/230V',
+      datosTec: 'Protección diferencial selectiva tipo B',
+      documentos: [{ id:`demo-doc-${base}-2`, title:'Esquema unifilar', kind:'link', url:'https://example.com/unifilar', createdAt:new Date().toISOString() }],
+    },
+    {
+      id: `demo-inst-${base}-3`,
+      nombre: 'Residencia Mar · Sala de Bombas',
+      codigo: 'RM-FON-02',
+      direccion: 'Paseo Costa 9, Valencia',
+      telefono: '+34 963 882 110',
+      email: 'fontaneria@residenciamar.es',
+      zona: 'Sótano técnico',
+      tecnico: 'Iván Pérez',
+      especialidad: 'Fontanería',
+      elemento: 'Grupo de presión + ACS',
+      potencia: '18 kW',
+      tension: '400V',
+      datosTec: '2 bombas en paralelo + vaso expansión 500L',
+      documentos: [{ id:`demo-doc-${base}-3`, title:'Manual grupo de presión', kind:'link', url:'https://example.com/bombas', createdAt:new Date().toISOString() }],
+    },
+    {
+      id: `demo-inst-${base}-4`,
+      nombre: 'Campus Tecnológico · PCI',
+      codigo: 'CT-PCI-07',
+      direccion: 'Camino Innovación 3, Málaga',
+      telefono: '+34 952 300 411',
+      email: 'pci@campustec.es',
+      zona: 'Edificio B · Planta baja',
+      tecnico: 'Marta Gil',
+      especialidad: 'Obra civil',
+      elemento: 'Red BIE + detección',
+      potencia: 'N/A',
+      tension: '24Vdc',
+      datosTec: 'Central analógica con 6 lazos',
+      documentos: [{ id:`demo-doc-${base}-4`, title:'Checklist PCI trimestral', kind:'link', url:'https://example.com/pci-checklist', createdAt:new Date().toISOString() }],
+    },
+    {
+      id: `demo-inst-${base}-5`,
+      nombre: 'Clínica Sur · Gases medicinales',
+      codigo: 'CS-GM-03',
+      direccion: 'Av. Sur 88, Sevilla',
+      telefono: '+34 954 771 932',
+      email: 'gm@clinicasur.es',
+      zona: 'Bloque quirúrgico',
+      tecnico: 'Daniel Soto',
+      especialidad: 'Gases medicinales',
+      elemento: 'Red O2 / vacío',
+      potencia: 'N/A',
+      tension: '24V',
+      datosTec: 'Alarmas de presión por sector',
+      documentos: [{ id:`demo-doc-${base}-5`, title:'Protocolo fugas O2', kind:'link', url:'https://example.com/gases', createdAt:new Date().toISOString() }],
+    }
+  ];
+  const ots = installs.map((inst, idx) => ({
+    id: `demo-ot-${base}-${idx+1}`,
+    title: `Revisión ${inst.elemento}`,
+    zona: inst.zona,
+    especialidad: inst.especialidad,
+    estado: idx === 0 ? 'En curso' : idx === 1 ? 'Planificada' : idx === 2 ? 'En demora' : 'Planificada',
+    fecha: addDaysISO(idx - 1),
+    hora: ['08:30','10:00','12:00','15:30','17:00'][idx],
+    prioridad: ['URGENTE','ALTA','MEDIA','MEDIA','ALTA'][idx],
+    frecuencia: idx % 2 === 0 ? 'Mensual' : '',
+    nota: `OT demo vinculada a ${inst.nombre}`,
+    tipo: idx % 2 === 0 ? 'PM' : 'OT',
+    instalacionId: inst.id,
+    instalacionNombre: inst.nombre,
+  }));
+  const informes = installs.map((inst, idx) => ({
+    id: `demo-inf-${base}-${idx+1}`,
+    tipo: idx % 2 === 0 ? 'preventivo' : 'averia',
+    ot: `OT-DEMO-${idx+1}`,
+    fecha: addDaysISO(-(idx + 2)),
+    zona: inst.zona,
+    tec: inst.tecnico,
+    esp: inst.especialidad,
+    elem: inst.elemento,
+    desc: `Intervención demo en ${inst.nombre} para validar trazabilidad transversal.`,
+    mat: 'Material fungible + repuesto estándar',
+    estado: idx % 2 === 0 ? 'resuelta' : 'pendiente',
+    prioridad: ['MEDIA','ALTA','MEDIA','BAJA','URGENTE'][idx],
+    resumen: 'Resultado correcto con observaciones registradas.',
+    causas: 'Desgaste por uso operativo.',
+    actuacion: 'Limpieza técnica, ajuste y comprobación funcional.',
+    comprob: 'Prueba operativa OK.',
+    recom: 'Mantener frecuencia preventiva.',
+    riesgo: 'Bajo',
+    instalacionId: inst.id,
+    instalacionNombre: inst.nombre,
+    fname: `DEMO-${idx+1}.pdf`,
+  }));
+  try {
+    for (const inst of installs) await DB.save('instalaciones', inst);
+    for (const ot of ots) await DB.save('ots', ot);
+    for (const inf of informes) await DB.save('informes', inf);
+    populateInstSelect();
+    populateDocumentInstallationSelect();
+    renderAll();
+    toast('✅ Se cargaron 5 instalaciones demo completas en todas las secciones.');
+  } catch (err) {
+    IVPErrorLog.log('demo.seed_failed', err);
+    toast('No se pudieron cargar los datos demo.');
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
