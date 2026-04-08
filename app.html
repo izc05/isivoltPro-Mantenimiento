@@ -2704,6 +2704,7 @@ html[data-theme="light"] #page-inicio .home-state-card{
         <button class="agenda-chip" data-af="demora" onclick="setAgendaQuickFilter('demora', this)">En demora</button>
         <button class="agenda-chip" data-af="sinzona" onclick="setAgendaQuickFilter('sinzona', this)">Sin zona</button>
         <button class="agenda-chip" data-af="preventivo" onclick="setAgendaQuickFilter('preventivo', this)">Preventivo</button>
+        <button class="agenda-chip" data-af="google" onclick="setAgendaQuickFilter('google', this)">Google</button>
       </div>
       <div class="mini-list agenda-filter-summary" id="agenda-filter-summary">
         <div class="mini-item"><b>Sin filtro aplicado.</b></div>
@@ -2719,6 +2720,7 @@ html[data-theme="light"] #page-inicio .home-state-card{
       <div class="btn-bar">
         <button class="btn-ghost" id="btn-gcal-test" onclick="syncGoogleCalendarEvents(true)">🔄 Probar / sincronizar ahora</button>
         <button class="btn-primary" id="btn-gcal-save" onclick="saveGoogleCalendarConfig()">💾 Guardar Google Calendar</button>
+        <button class="btn-ghost red" onclick="clearGoogleCalendarEvents()">🧹 Limpiar eventos sincronizados</button>
       </div>
       <div id="gcal-meta" style="margin-top:8px;font-size:11px;color:var(--t3)">Google Calendar no configurado.</div>
     </div>
@@ -2740,6 +2742,12 @@ html[data-theme="light"] #page-inicio .home-state-card{
           <span><span class="pip ok" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span>Cerrada</span>
           <span><span class="pip m" style="display:inline-block;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,.35)"></span>Google Calendar</span>
         </div>
+      </div>
+    </div>
+    <div class="card reveal">
+      <div class="sec"><div class="sec-line"></div><div class="sec-lbl">Próximas tareas (7)</div><div class="sec-line"></div></div>
+      <div class="mini-list" id="agenda-next-list">
+        <div class="mini-item"><b>Sin tareas próximas</b><span>Sincroniza Google Calendar o crea OT para ver tu planning.</span></div>
       </div>
     </div>
 
@@ -5066,9 +5074,11 @@ function matchesAgendaQuickFilter(ot, filter = 'all') {
   if (!ot) return false;
   if (ot.source === 'gcal') {
     if (filter === 'all') return true;
+    if (filter === 'google') return true;
     if (filter === 'sinzona') return !String(ot.zona || '').trim();
     return false;
   }
+  if (filter === 'google') return false;
   const pr = (ot.prioridad || '').toUpperCase();
   const estado = ot.estado || 'Planificada';
   if (estado === 'Cerrada') return false;
@@ -5093,6 +5103,12 @@ function getGoogleCalendarEvents() {
   } catch (_) {
     return [];
   }
+}
+function clearGoogleCalendarEvents() {
+  localStorage.removeItem(GCAL_EVENTS_KEY);
+  loadGoogleCalendarConfigToForm();
+  renderCalGrid();
+  toast('Eventos de Google Calendar eliminados de la vista local.');
 }
 function getAgendaItems() {
   const ots = DB.getAll('ots').map(o => ({ ...o, source: 'ot' }));
@@ -5165,6 +5181,38 @@ function parseGoogleEventToAgenda(event = {}) {
     endDate,
   };
 }
+function mergeCalendarEvents(current = [], incoming = []) {
+  const map = new Map();
+  [...current, ...incoming].forEach(ev => {
+    if (!ev?.id) return;
+    map.set(ev.id, ev);
+  });
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 120);
+  return [...map.values()].filter(ev => {
+    const dt = Date.parse((ev.fecha || '') + 'T00:00:00');
+    return Number.isFinite(dt) ? dt >= cutoff.getTime() : true;
+  });
+}
+function renderAgendaNextList(items = []) {
+  const box = document.getElementById('agenda-next-list');
+  if (!box) return;
+  const sorted = [...items]
+    .filter(t => !!(t.fecha || t.planfecha))
+    .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+    .slice(0, 7);
+  if (!sorted.length) {
+    box.innerHTML = `<div class="mini-item"><b>Sin tareas próximas</b><span>Añade OTs o sincroniza Google Calendar para ver planificación.</span></div>`;
+    return;
+  }
+  box.innerHTML = sorted.map(t => {
+    const source = t.source === 'gcal' ? 'Google' : (t.tipo || 'OT');
+    return `<div class="mini-item" onclick="showDayTasks('${t.fecha || t.planfecha}', getAgendaItemsByDate('${t.fecha || t.planfecha}'))">
+      <b>${esc(t.title || 'Tarea')}</b>
+      <span>${esc(t.fecha || t.planfecha)} · ${esc(formatOTHour(t))} · ${esc(t.zona || 'Sin zona')} · ${esc(source)}</span>
+    </div>`;
+  }).join('');
+}
 async function syncGoogleCalendarEvents(withToast = false) {
   setButtonLoading('btn-gcal-test', true, '⏳ Sincronizando calendario…');
   try {
@@ -5177,11 +5225,12 @@ async function syncGoogleCalendarEvents(withToast = false) {
     if (!res.ok) throw new Error(`Google Calendar HTTP ${res.status}`);
     const data = await res.json();
     const parsed = Array.isArray(data.items) ? data.items.map(parseGoogleEventToAgenda).filter(e => !!e.fecha) : [];
-    localStorage.setItem(GCAL_EVENTS_KEY, JSON.stringify(parsed));
+    const merged = mergeCalendarEvents(getGoogleCalendarEvents(), parsed);
+    localStorage.setItem(GCAL_EVENTS_KEY, JSON.stringify(merged));
     localStorage.setItem(GCAL_CONFIG_KEY, JSON.stringify({ ...cfg, lastSyncAt: new Date().toISOString() }));
     loadGoogleCalendarConfigToForm();
     renderCalGrid();
-    if (withToast) toast(`Google Calendar sincronizado: ${parsed.length} evento(s) cargados.`);
+    if (withToast) toast(`Google Calendar sincronizado: ${parsed.length} evento(s) descargados.`);
   } catch (err) {
     IVPErrorLog.log('gcal.sync_failed', err);
     if (withToast) toast(`No se pudo sincronizar Google Calendar: ${err.message}`);
@@ -5268,6 +5317,7 @@ function renderCalGrid() {
       }).join('')
       : `<div class="mini-item"><b>Sin coincidencias</b><span>No hay OTs abiertas para este filtro rápido.</span></div>`;
   }
+  renderAgendaNextList(filtered);
 }
 
 function changeMonth(dir) {
