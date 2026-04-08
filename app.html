@@ -3135,6 +3135,24 @@ html[data-theme="light"] #page-inicio .home-state-card{
     </div>
 
     <div class="card reveal">
+      <div style="font-size:14px;font-weight:800;margin-bottom:6px">🤖 Automatización IA (mini PC)</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.6">
+        Conecta un endpoint local (por ejemplo en tu mini PC) para recibir un resumen automático cada vez que guardes un informe.
+      </div>
+      <div class="fgrp"><label>URL endpoint IA</label><input type="url" id="ai-endpoint" placeholder="http://192.168.1.20:8080/api/isivolt/analyze"></div>
+      <div class="fgrp"><label>Modelo (opcional)</label><input type="text" id="ai-model" placeholder="gpt-4.1-mini / llama3.1 / custom"></div>
+      <div class="fgrp"><label>API Key / Token (opcional)</label><input type="password" id="ai-api-key" placeholder="sk-... o token local"></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t1);margin:4px 0 10px">
+        <input type="checkbox" id="ai-auto-enabled" style="width:auto;min-height:auto"> Activar envío automático al guardar informe
+      </label>
+      <div class="btn-bar">
+        <button class="btn-ghost acc" id="btn-ai-test" onclick="testAIConfig()">🧪 Probar conexión IA</button>
+        <button class="btn-primary" id="btn-ai-save" onclick="saveAIConfig()">💾 Guardar configuración IA</button>
+      </div>
+      <div id="ai-config-meta" style="margin-top:8px;font-size:11px;color:var(--t3)">IA automática: desactivada.</div>
+    </div>
+
+    <div class="card reveal">
       <div style="font-size:14px;font-weight:800;margin-bottom:6px">Copia de seguridad local</div>
       <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Exporta o importa todos los datos en formato JSON.</div>
       <div class="btn-bar">
@@ -3663,6 +3681,13 @@ const App = {
 };
 
 const DEFAULT_WEATHER_LOCATION = { name: 'Madrid', latitude: 40.4168, longitude: -3.7038 };
+const AI_CONFIG_KEY = 'ivp_ai_config';
+const AI_DEFAULT_CONFIG = {
+  endpoint: '',
+  model: '',
+  apiKey: '',
+  autoEnabled: false,
+};
 const API_ENDPOINTS = {
   weather: ({ latitude, longitude }) => `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`,
   geocoding: (q) => `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=es&format=json`,
@@ -3722,6 +3747,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (_) {}
   }
   DB.loadGitHubConfig();
+  loadAIConfigToForm();
   await DB.init();
   loadHomeWeatherLocation();
   applyTheme();
@@ -4554,6 +4580,7 @@ async function generar() {
     // Guardar en DB
     const record = { ...data, fname, fotos: fotosInforme, id: `${Date.now()}` };
     await DB.save('informes', record);
+    runAIAutomationOnReport(record);
 
     step('ps5', 'done'); setProgBar(100);
     await sleep(350);
@@ -4564,6 +4591,124 @@ async function generar() {
   } catch (err) {
     showErr('Error al generar el PDF: ' + err.message);
     setUI({ gen: true, prog: false, res: false, err: true });
+  }
+}
+
+function getAIConfig() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(AI_CONFIG_KEY) || '{}');
+    return {
+      endpoint: String(raw.endpoint || '').trim(),
+      model: String(raw.model || '').trim(),
+      apiKey: String(raw.apiKey || '').trim(),
+      autoEnabled: !!raw.autoEnabled,
+    };
+  } catch (_) {
+    return { ...AI_DEFAULT_CONFIG };
+  }
+}
+function setAIConfigMeta(text = '') {
+  const el = document.getElementById('ai-config-meta');
+  if (el) el.textContent = text;
+}
+function loadAIConfigToForm() {
+  const cfg = getAIConfig();
+  setValue('ai-endpoint', cfg.endpoint);
+  setValue('ai-model', cfg.model);
+  setValue('ai-api-key', cfg.apiKey);
+  const auto = document.getElementById('ai-auto-enabled');
+  if (auto) auto.checked = !!cfg.autoEnabled;
+  setAIConfigMeta(cfg.autoEnabled && cfg.endpoint
+    ? `IA automática: activa (${cfg.endpoint}).`
+    : 'IA automática: desactivada.');
+}
+function saveAIConfig() {
+  ['ai-endpoint'].forEach(clearFieldError);
+  const endpoint = document.getElementById('ai-endpoint')?.value?.trim() || '';
+  const model = document.getElementById('ai-model')?.value?.trim() || '';
+  const apiKey = document.getElementById('ai-api-key')?.value?.trim() || '';
+  const autoEnabled = !!document.getElementById('ai-auto-enabled')?.checked;
+  if (autoEnabled && !endpoint) {
+    setFieldError('ai-endpoint', 'Indica la URL del endpoint IA para activar el envío automático.');
+    toast('Falta la URL del endpoint IA.');
+    return;
+  }
+  const payload = { endpoint, model, apiKey, autoEnabled };
+  try {
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(payload));
+    setAIConfigMeta(autoEnabled && endpoint
+      ? `IA automática: activa (${endpoint}).`
+      : 'IA automática: desactivada.');
+    toast('Configuración IA guardada.');
+  } catch (_) {
+    toast('No se pudo guardar la configuración IA en este dispositivo.');
+  }
+}
+async function callAIEndpoint(payload, cfg = getAIConfig()) {
+  if (!cfg.endpoint) throw new Error('Configura la URL del endpoint IA en Ajustes.');
+  const headers = { 'Content-Type': 'application/json' };
+  if (cfg.apiKey) headers.Authorization = `Bearer ${cfg.apiKey}`;
+  const res = await fetch(cfg.endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      source: 'isivoltpro',
+      ts: new Date().toISOString(),
+      model: cfg.model || undefined,
+      ...payload,
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  return text.slice(0, 220);
+}
+async function testAIConfig() {
+  setButtonLoading('btn-ai-test', true, '⏳ Probando endpoint IA…');
+  try {
+    const cfg = getAIConfig();
+    const response = await callAIEndpoint({ type: 'healthcheck', ping: 'ok' }, cfg);
+    toast(`IA conectada: ${response || 'respuesta vacía, pero endpoint operativo.'}`);
+  } catch (err) {
+    IVPErrorLog.log('ai.test_failed', err);
+    toast(`No se pudo conectar con la IA: ${err.message}`);
+  } finally {
+    setButtonLoading('btn-ai-test', false);
+  }
+}
+function summarizeReportForAI(record = {}) {
+  return {
+    id: record.id,
+    fecha: record.fecha || '',
+    tipo: record.tipo || '',
+    ot: record.ot || '',
+    prioridad: record.prioridad || '',
+    estado: record.estado || '',
+    zona: record.zona || '',
+    tecnico: record.tec || '',
+    especialidad: record.esp || '',
+    descripcion: record.desc || '',
+    actuacion: record.actuacion || '',
+    material: record.mat || '',
+    riesgo: record.riesgo || '',
+    checklist: record.checklist || '',
+  };
+}
+async function runAIAutomationOnReport(record = {}) {
+  const cfg = getAIConfig();
+  if (!cfg.autoEnabled || !cfg.endpoint) return;
+  try {
+    await callAIEndpoint({
+      type: 'report_saved',
+      report: summarizeReportForAI(record),
+      request: {
+        action: 'Generar resumen técnico, riesgos, próximos pasos y prioridad recomendada.',
+        format: 'json',
+      },
+    }, cfg);
+    toast('🤖 IA automática: informe enviado al mini PC.', { compact: true, duration: 2200 });
+  } catch (err) {
+    IVPErrorLog.log('ai.auto_report_failed', err, { reportId: record.id, endpoint: cfg.endpoint });
+    toast('⚠️ IA automática no disponible (informe guardado igualmente).', { compact: true, duration: 2600 });
   }
 }
 
