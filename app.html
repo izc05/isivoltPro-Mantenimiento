@@ -796,9 +796,54 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   :root{
     --control-h: 40px;
   }
+  .card{
+    padding: 13px;
+    border-radius: 18px;
+  }
   .wrap{
     padding-left: 12px;
     padding-right: 12px;
+  }
+  .kpi-grid,
+  .kpi-grid.four,
+  .row2,
+  .row3,
+  .tipo-wrap,
+  .home-radar-top{
+    grid-template-columns: 1fr;
+  }
+  .home-state-grid{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .ot-quick-stats{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lc-top{
+    gap: 10px;
+    padding: 12px;
+  }
+  .lc-title{
+    white-space: normal;
+    overflow: visible;
+    text-overflow: initial;
+    line-height: 1.35;
+  }
+  .lc-actions{
+    flex-direction: column;
+    padding: 10px 12px;
+  }
+  .lc-btn{
+    width: 100%;
+    min-height: 34px;
+  }
+  .btn-bar{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-bar .btn-ghost{
+    width: 100%;
+    justify-content: center;
   }
   .hero{
     padding: 16px 14px;
@@ -828,6 +873,10 @@ input::placeholder, textarea::placeholder { color: var(--t3); }
   .toolbar-control{
     flex: 1 1 calc(50% - 4px);
     min-width: 120px;
+  }
+  .inst-toolbar .toolbar-control,
+  .ot-toolbar .toolbar-control{
+    flex-basis: 100%;
   }
   #ot-filter-mes{
     flex-basis: 100%;
