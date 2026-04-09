@@ -3839,8 +3839,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initDayWatcher() {
   const refreshIfDayChanged = () => {
+    const prevKey = App.todayKey;
     const nowKey = fmtDate(new Date());
     if (App.todayKey === nowKey) return;
+    const [prevYear, prevMonth] = String(prevKey).split('-').map(Number);
+    const showingTodayMonth = App.calYear === prevYear && App.calMonth === (prevMonth - 1);
+    if (showingTodayMonth) {
+      const now = new Date();
+      App.calYear = now.getFullYear();
+      App.calMonth = now.getMonth();
+    }
     App.todayKey = nowKey;
     renderHome();
     renderCalGrid();
@@ -5259,7 +5267,7 @@ function renderAgendaNextList(items = []) {
   if (!box) return;
   const sorted = [...items]
     .filter(t => !!(t.fecha || t.planfecha))
-    .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+    .sort((a, b) => `${a.fecha || a.planfecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || b.planfecha || ''}${getOTHour(b)}`))
     .slice(0, 7);
   if (!sorted.length) {
     box.innerHTML = `<div class="mini-item"><b>Sin tareas próximas</b><span>Añade OTs o sincroniza Google Calendar para ver planificación.</span></div>`;
@@ -5368,7 +5376,7 @@ function renderCalGrid() {
   if (summary) {
     const next = [...filtered]
       .filter(o => !!(o.fecha || o.planfecha))
-      .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+      .sort((a, b) => `${a.fecha || a.planfecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || b.planfecha || ''}${getOTHour(b)}`))
       .slice(0, 4);
     summary.innerHTML = next.length
       ? next.map(o => {
@@ -7263,7 +7271,7 @@ function setButtonLoading(btnId = '', isLoading = false, loadingText = 'Procesan
   delete btn.dataset.prevLabel;
 }
 function setValue(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
-function initDate() { setValue('f-fecha', new Date().toISOString().split('T')[0]); }
+function initDate() { setValue('f-fecha', fmtDate(new Date())); }
 function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
