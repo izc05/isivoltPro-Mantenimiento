@@ -3839,8 +3839,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initDayWatcher() {
   const refreshIfDayChanged = () => {
+    const prevKey = App.todayKey;
     const nowKey = fmtDate(new Date());
     if (App.todayKey === nowKey) return;
+    const [prevYear, prevMonth] = String(prevKey).split('-').map(Number);
+    const showingTodayMonth = App.calYear === prevYear && App.calMonth === (prevMonth - 1);
+    if (showingTodayMonth) {
+      const now = new Date();
+      App.calYear = now.getFullYear();
+      App.calMonth = now.getMonth();
+    }
     App.todayKey = nowKey;
     renderHome();
     renderCalGrid();
@@ -4347,10 +4355,30 @@ const CHECKLISTS = {
   'Gases medicinales':['Verificar cierre y estanqueidad del punto intervenido.','Comprobar presión y funcionamiento del ramal.','Revisar etiquetado y señalización.','Tomar foto del punto reparado.'],
 };
 const REGULATIONS = [
-  { code: 'REBT', area: 'Electricidad BT', docs: ['Reglamento electrotécnico de baja tensión.','Consulta por ITC-BT para localizar rápidamente requisitos aplicables.','Incluye desglose completo de ITC-BT-01 a ITC-BT-52.'] },
-  { code: 'RITE', area: 'Climatización', docs: ['Mantenimiento preventivo de equipos térmicos.','Control de calidad ambiental interior.','Protocolos de revisión y eficiencia energética.'] },
-  { code: 'PCI', area: 'Protección contra incendios', docs: ['Extinción, detección y señalización.','Pruebas periódicas obligatorias.','Trazabilidad de actuaciones y partes.'] },
-  { code: 'GASES MED', area: 'Gases medicinales', docs: ['Verificación de presión y estanqueidad.','Seguridad en tomas y válvulas de sector.','Plan de revisiones por zonas críticas.'] },
+  {
+    code: 'REBT',
+    area: 'Electricidad BT',
+    docs: ['Reglamento electrotécnico de baja tensión.','Consulta por ITC-BT para localizar rápidamente requisitos aplicables.','Incluye desglose completo de ITC-BT-01 a ITC-BT-52.'],
+    pdfUrl: 'https://www.boe.es/buscar/pdf/2002/BOE-A-2002-18099-consolidado.pdf'
+  },
+  {
+    code: 'RITE',
+    area: 'Climatización',
+    docs: ['Mantenimiento preventivo de equipos térmicos.','Control de calidad ambiental interior.','Protocolos de revisión y eficiencia energética.'],
+    pdfUrl: 'https://www.boe.es/buscar/pdf/2007/BOE-A-2007-15820-consolidado.pdf'
+  },
+  {
+    code: 'PCI',
+    area: 'Protección contra incendios',
+    docs: ['Extinción, detección y señalización.','Pruebas periódicas obligatorias.','Trazabilidad de actuaciones y partes.'],
+    pdfUrl: 'https://www.boe.es/buscar/pdf/2017/BOE-A-2017-6606-consolidado.pdf'
+  },
+  {
+    code: 'GASES MED',
+    area: 'Gases medicinales',
+    docs: ['Verificación de presión y estanqueidad.','Seguridad en tomas y válvulas de sector.','Plan de revisiones por zonas críticas.'],
+    pdfUrl: 'https://www.boe.es/buscar/pdf/2003/BOE-A-2003-19572-consolidado.pdf'
+  },
 ];
 const REBT_ITC = Array.from({ length: 52 }, (_, idx) => {
   const n = idx + 1;
@@ -4482,9 +4510,18 @@ function renderRegulations() {
     <article class="reg-card">
       <div class="reg-head"><span class="reg-code">${esc(reg.code)}</span><span class="reg-chip">${esc(reg.area)}</span></div>
       <ul>${reg.docs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>
+      ${reg.pdfUrl ? `<button class="reg-open-btn" onclick="openRegulationDoc('${esc(reg.pdfUrl)}','${esc(reg.code)}')">📄 Ver PDF oficial</button>` : ''}
       ${reg.code === 'REBT' ? '<button class="reg-open-btn" onclick="goPage(\'rebt\')">Abrir página REBT · 52 ITC</button>' : ''}
     </article>`).join('') + `
     ${filteredRegs.length ? '' : '<div class="reg-empty">No hay reglamentos con esa búsqueda.</div>'}`;
+}
+function openRegulationDoc(url = '', code = '') {
+  if (!url) {
+    toast(`No hay PDF configurado para ${code || 'este reglamento'}.`);
+    return;
+  }
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!win) toast('No se pudo abrir el PDF. Revisa si el navegador bloqueó la ventana emergente.');
 }
 
 function renderREBTList() {
@@ -5259,7 +5296,7 @@ function renderAgendaNextList(items = []) {
   if (!box) return;
   const sorted = [...items]
     .filter(t => !!(t.fecha || t.planfecha))
-    .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+    .sort((a, b) => `${a.fecha || a.planfecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || b.planfecha || ''}${getOTHour(b)}`))
     .slice(0, 7);
   if (!sorted.length) {
     box.innerHTML = `<div class="mini-item"><b>Sin tareas próximas</b><span>Añade OTs o sincroniza Google Calendar para ver planificación.</span></div>`;
@@ -5368,7 +5405,7 @@ function renderCalGrid() {
   if (summary) {
     const next = [...filtered]
       .filter(o => !!(o.fecha || o.planfecha))
-      .sort((a, b) => `${a.fecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || ''}${getOTHour(b)}`))
+      .sort((a, b) => `${a.fecha || a.planfecha || ''}${getOTHour(a)}`.localeCompare(`${b.fecha || b.planfecha || ''}${getOTHour(b)}`))
       .slice(0, 4);
     summary.innerHTML = next.length
       ? next.map(o => {
@@ -7263,7 +7300,7 @@ function setButtonLoading(btnId = '', isLoading = false, loadingText = 'Procesan
   delete btn.dataset.prevLabel;
 }
 function setValue(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
-function initDate() { setValue('f-fecha', new Date().toISOString().split('T')[0]); }
+function initDate() { setValue('f-fecha', fmtDate(new Date())); }
 function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fileToDataURL(file) {
   return new Promise((resolve, reject) => {
